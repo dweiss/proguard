@@ -8,5 +8,6 @@
 	<classpathentry kind="lib" path="lib/proguardgui.jar"/>
 	<classpathentry kind="lib" path="lib/retrace.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/ANT_HOME"/>
 	<classpathentry kind="output" path="tmp/eclipse"/>
 </classpath>
