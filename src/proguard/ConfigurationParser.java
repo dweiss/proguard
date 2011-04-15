@@ -201,6 +201,15 @@ public class ConfigurationParser
                 + nextWord);
         }
         
+        String packageMatchPrefix = pair[0];
+        String packageAddPrefix = pair[1];
+        if (packageMatchPrefix.startsWith(".") || packageMatchPrefix.endsWith(".") ||
+            packageAddPrefix.startsWith(".") || packageAddPrefix.endsWith("."))
+        {
+            throw new ParseException("Packages should not end with a '.': "
+                + nextWord);
+        }
+
         list.add(new PackageRenameRule(pair[0], pair[1]));
 
         readNextWord();

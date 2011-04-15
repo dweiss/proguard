@@ -13,4 +13,10 @@ public final class PackageRenameRule
         this.packagePrefix = packagePrefix;
         this.addPrefix = addPrefix;
     }
+    
+    @Override
+    public String toString()
+    {
+        return packagePrefix + "=>" + addPrefix;
+    }
 }
