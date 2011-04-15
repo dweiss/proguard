@@ -128,37 +128,42 @@ public class Obfuscator
         // configuration may rely on annotations.
         programClassPool.classesAccept(new AttributeShrinker());
 
+        // Warning printer and keeper.
+        WarningPrinter warningPrinter = new WarningPrinter(System.err, configuration.warn);
+        MappingProcessor keeper =
+            new MultiMappingProcessor(new MappingProcessor[]
+            {
+                new MappingKeeper(programClassPool, warningPrinter),
+                new MappingKeeper(libraryClassPool, null),
+            });
+
+        // Apply package renaming rules.
+        if (configuration.renamePackages != null && configuration.renamePackages.size() > 0)
+        {
+            programClassPool.classesAccept(new PackageRenamer(keeper, configuration));
+        }
+
         // Apply the mapping, if one has been specified. The mapping can
         // override the names of library classes and of library class members.
         if (configuration.applyMapping != null)
         {
-            WarningPrinter warningPrinter = new WarningPrinter(System.err, configuration.warn);
-
             MappingReader reader = new MappingReader(configuration.applyMapping);
-
-            MappingProcessor keeper =
-                new MultiMappingProcessor(new MappingProcessor[]
-                {
-                    new MappingKeeper(programClassPool, warningPrinter),
-                    new MappingKeeper(libraryClassPool, null),
-                });
-
             reader.pump(keeper);
+        }
 
-            // Print out a summary of the warnings if necessary.
-            int mappingWarningCount = warningPrinter.getWarningCount();
-            if (mappingWarningCount > 0)
+        // Print out a summary of the warnings if necessary.
+        int mappingWarningCount = warningPrinter.getWarningCount();
+        if (mappingWarningCount > 0)
+        {
+            System.err.println("Warning: there were " + mappingWarningCount +
+                                                        " kept classes and class members that were remapped anyway.");
+            System.err.println("         You should adapt your configuration or edit the mapping file.");
+
+            if (!configuration.ignoreWarnings)
             {
-                System.err.println("Warning: there were " + mappingWarningCount +
-                                                            " kept classes and class members that were remapped anyway.");
-                System.err.println("         You should adapt your configuration or edit the mapping file.");
-
-                if (!configuration.ignoreWarnings)
-                {
-                    System.err.println("         If you are sure this remapping won't hurt,");
-                    System.err.println("         you could try your luck using the '-ignorewarnings' option.");
-                    throw new IOException("Please correct the above warnings first.");
-                }
+                System.err.println("         If you are sure this remapping won't hurt,");
+                System.err.println("         you could try your luck using the '-ignorewarnings' option.");
+                throw new IOException("Please correct the above warnings first.");
             }
         }
 
@@ -189,8 +194,6 @@ public class Obfuscator
             nameFactory = new DictionaryNameFactory(configuration.obfuscationDictionary,
                                                     nameFactory);
         }
-
-        WarningPrinter warningPrinter = new WarningPrinter(System.err, configuration.warn);
 
         // Maintain a map of names to avoid [descriptor - new name - old name].
         Map descriptorMap = new HashMap();

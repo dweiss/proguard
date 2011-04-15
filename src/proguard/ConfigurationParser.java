@@ -22,6 +22,7 @@ package proguard;
 
 import proguard.classfile.ClassConstants;
 import proguard.classfile.util.ClassUtil;
+import proguard.obfuscate.PackageRenameRule;
 import proguard.util.ListUtil;
 
 import java.io.*;
@@ -116,6 +117,8 @@ public class ConfigurationParser
             else if (ConfigurationConstants.TARGET_OPTION                                    .startsWith(nextWord)) configuration.targetClassVersion               = parseClassVersion();
             else if (ConfigurationConstants.FORCE_PROCESSING_OPTION                          .startsWith(nextWord)) configuration.lastModified                     = parseNoArgument(Long.MAX_VALUE);
 
+            else if (ConfigurationConstants.RENAME_PACKAGE_OPTION                            .startsWith(nextWord)) configuration.renamePackages                   = parsePackageRenameRule(configuration.renamePackages);
+
             else if (ConfigurationConstants.KEEP_OPTION                                      .startsWith(nextWord)) configuration.keep                             = parseKeepClassSpecificationArguments(configuration.keep, true,  false, false);
             else if (ConfigurationConstants.KEEP_CLASS_MEMBERS_OPTION                        .startsWith(nextWord)) configuration.keep                             = parseKeepClassSpecificationArguments(configuration.keep, false, false, false);
             else if (ConfigurationConstants.KEEP_CLASSES_WITH_MEMBERS_OPTION                 .startsWith(nextWord)) configuration.keep                             = parseKeepClassSpecificationArguments(configuration.keep, false, true,  false);
@@ -174,6 +177,35 @@ public class ConfigurationParser
         }
     }
 
+    /**
+     * Parses a single package rename rule.
+     */
+    private List parsePackageRenameRule(List list) throws IOException, ParseException
+    {
+        if (list == null)
+        {
+            list = new ArrayList();
+        }
+
+        readNextWord("package rename rule");
+        if (nextWord.indexOf("=>") < 0) 
+        {
+            throw new ParseException("Expected a package.name=>prefix rule syntax: "
+                + nextWord);
+        }
+        
+        String [] pair = nextWord.split("=>");
+        if (pair.length != 2) 
+        {
+            throw new ParseException("Expected a package-prefix=>add-prefix rule syntax: "
+                + nextWord);
+        }
+        
+        list.add(new PackageRenameRule(pair[0], pair[1]));
+
+        readNextWord();
+        return list;
+    }
 
 
     /**

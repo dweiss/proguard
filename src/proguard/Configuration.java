@@ -179,6 +179,11 @@ public class Configuration
     public File      applyMapping;
 
     /**
+     * Rename rules for packages.
+     */
+    public List      renamePackages;
+
+    /**
      * An optional name of a file containing obfuscated class member names.
      */
     public File      obfuscationDictionary;
