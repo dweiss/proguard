@@ -86,7 +86,7 @@ implements   MemberVisitor,
             if (!programMethod.equals(similarMethod))
             {
                 // Should this initializer be preserved?
-                if (!KeepMarker.isKept(programMethod))
+                if (KeepMarker.isKept(programMethod))
                 {
                     // Fix the other initializer.
                     programMethod = (ProgramMethod)similarMethod;

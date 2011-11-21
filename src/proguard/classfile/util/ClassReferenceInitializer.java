@@ -166,6 +166,14 @@ implements   ClassVisitor,
     }
 
 
+    public void visitMethodHandleConstant(Clazz clazz, MethodHandleConstant methodHandleConstant)
+    {
+        // Fill out the MethodHandle class.
+        methodHandleConstant.javaLangInvokeMethodHandleClass =
+            findClass(clazz.getName(), ClassConstants.INTERNAL_NAME_JAVA_LANG_INVOKE_METHOD_HANDLE);
+    }
+
+
     public void visitAnyRefConstant(Clazz clazz, RefConstant refConstant)
     {
         String className = refConstant.getClassName(clazz);
@@ -226,6 +234,14 @@ implements   ClassVisitor,
         // Fill out the Class class.
         classConstant.javaLangClassClass =
             findClass(className, ClassConstants.INTERNAL_NAME_JAVA_LANG_CLASS);
+    }
+
+
+    public void visitMethodTypeConstant(Clazz clazz, MethodTypeConstant methodTypeConstant)
+    {
+        // Fill out the MethodType class.
+        methodTypeConstant.javaLangInvokeMethodTypeClass =
+            findClass(clazz.getName(), ClassConstants.INTERNAL_NAME_JAVA_LANG_INVOKE_METHOD_TYPE);
     }
 
 
