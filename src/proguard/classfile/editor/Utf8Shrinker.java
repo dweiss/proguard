@@ -18,7 +18,7 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-package proguard.obfuscate;
+package proguard.classfile.editor;
 
 import proguard.classfile.*;
 import proguard.classfile.attribute.*;
@@ -28,18 +28,17 @@ import proguard.classfile.attribute.preverification.*;
 import proguard.classfile.attribute.visitor.*;
 import proguard.classfile.constant.*;
 import proguard.classfile.constant.visitor.ConstantVisitor;
+import proguard.classfile.editor.ConstantPoolRemapper;
 import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.*;
 
+
 /**
- * This ClassVisitor marks all UTF-8 constant pool entries that are
- * being used in the program classes it visits.
- *
- * @see Utf8Shrinker
+ * This ClassVisitor removes UTF-8 constant pool entries that are not used.
  *
  * @author Eric Lafortune
  */
-public class Utf8UsageMarker
+public class Utf8Shrinker
 extends      SimplifiedVisitor
 implements   ClassVisitor,
              MemberVisitor,
@@ -53,6 +52,9 @@ implements   ClassVisitor,
 {
     // A visitor info flag to indicate the UTF-8 constant pool entry is being used.
     private static final Object USED = new Object();
+
+    private       int[]                constantIndexMap     = new int[ClassConstants.TYPICAL_CONSTANT_POOL_SIZE];
+    private final ConstantPoolRemapper constantPoolRemapper = new ConstantPoolRemapper();
 
 
     // Implementations for ClassVisitor.
@@ -68,6 +70,22 @@ implements   ClassVisitor,
 
         // Mark the UTF-8 entries referenced by the attributes.
         programClass.attributesAccept(this);
+
+        // Shift the used constant pool entries together, filling out the
+        // index map.
+        int newConstantPoolCount =
+            shrinkConstantPool(programClass.constantPool,
+                               programClass.u2constantPoolCount);
+
+        // Remap the references to the constant pool if it has shrunk.
+        if (newConstantPoolCount < programClass.u2constantPoolCount)
+        {
+            programClass.u2constantPoolCount = newConstantPoolCount;
+
+            // Remap all constant pool references.
+            constantPoolRemapper.setConstantIndexMap(constantIndexMap);
+            constantPoolRemapper.visitProgramClass(programClass);
+        }
     }
 
 
@@ -375,7 +393,7 @@ implements   ClassVisitor,
      * Marks the given VisitorAccepter as being used.
      * In this context, the VisitorAccepter will be a Utf8Constant object.
      */
-    private static void markAsUsed(VisitorAccepter visitorAccepter)
+    private void markAsUsed(VisitorAccepter visitorAccepter)
     {
         visitorAccepter.setVisitorInfo(USED);
     }
@@ -385,8 +403,54 @@ implements   ClassVisitor,
      * Returns whether the given VisitorAccepter has been marked as being used.
      * In this context, the VisitorAccepter will be a Utf8Constant object.
      */
-    static boolean isUsed(VisitorAccepter visitorAccepter)
+    private boolean isUsed(VisitorAccepter visitorAccepter)
     {
         return visitorAccepter.getVisitorInfo() == USED;
+    }
+
+
+    /**
+     * Removes all UTF-8 entries that are not marked as being used
+     * from the given constant pool.
+     * @return the new number of entries.
+     */
+    private int shrinkConstantPool(Constant[] constantPool, int length)
+    {
+        // Create a new index map, if necessary.
+        if (constantIndexMap.length < length)
+        {
+            constantIndexMap = new int[length];
+        }
+
+        int     counter = 1;
+        boolean isUsed  = false;
+
+        // Shift the used constant pool entries together.
+        for (int index = 1; index < length; index++)
+        {
+            constantIndexMap[index] = counter;
+
+            Constant constant = constantPool[index];
+
+            // Don't update the flag if this is the second half of a long entry.
+            if (constant != null)
+            {
+                isUsed = constant.getTag() != ClassConstants.CONSTANT_Utf8 ||
+                         isUsed(constant);
+            }
+
+            if (isUsed)
+            {
+                constantPool[counter++] = constant;
+            }
+        }
+
+        // Clear the remaining constant pool elements.
+        for (int index = counter; index < length; index++)
+        {
+            constantPool[index] = null;
+        }
+
+        return counter;
     }
 }

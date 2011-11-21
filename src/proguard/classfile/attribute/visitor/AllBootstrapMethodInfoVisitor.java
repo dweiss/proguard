@@ -18,47 +18,38 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-package proguard.optimize.info;
+package proguard.classfile.attribute.visitor;
 
 import proguard.classfile.*;
+import proguard.classfile.attribute.*;
 import proguard.classfile.util.SimplifiedVisitor;
-import proguard.classfile.visitor.ClassVisitor;
 
 /**
- * This ClassVisitor marks all program classes that it visits as caught.
- * This means that these classes are exception classes that occur in exception
- * handlers.
+ * This AttributeVisitor lets a given BootstrapMethodInfoVisitor visit all
+ * bootstrap method objects of the BootstrapMethodsAttribute objects it visits.
  *
  * @author Eric Lafortune
  */
-public class CaughtClassMarker
-implements   ClassVisitor
+public class AllBootstrapMethodInfoVisitor
+extends      SimplifiedVisitor
+implements   AttributeVisitor
 {
-    // Implementations for ClassVisitor.
+    private final BootstrapMethodInfoVisitor bootstrapMethodInfoVisitor;
 
-    public void visitLibraryClass(LibraryClass libraryClass) {}
 
-    public void visitProgramClass(ProgramClass programClass)
+    public AllBootstrapMethodInfoVisitor(BootstrapMethodInfoVisitor bootstrapMethodInfoVisitor)
     {
-        setCaught(programClass);
+        this.bootstrapMethodInfoVisitor = bootstrapMethodInfoVisitor;
     }
 
 
-    // Small utility methods.
+    // Implementations for AttributeVisitor.
 
-    private static void setCaught(Clazz clazz)
+    public void visitAnyAttribute(Clazz clazz, Attribute attribute) {}
+
+
+    public void visitBootstrapMethodsAttribute(Clazz clazz, BootstrapMethodsAttribute bootstrapMethodsAttribute)
     {
-        ClassOptimizationInfo info = ClassOptimizationInfo.getClassOptimizationInfo(clazz);
-        if (info != null)
-        {
-            info.setCaught();
-        }
-    }
-
-
-    public static boolean isCaught(Clazz clazz)
-    {
-        ClassOptimizationInfo info = ClassOptimizationInfo.getClassOptimizationInfo(clazz);
-        return info == null || info.isCaught();
+        bootstrapMethodsAttribute.bootstrapMethodEntriesAccept(clazz, bootstrapMethodInfoVisitor);
     }
 }

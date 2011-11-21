@@ -49,7 +49,7 @@ implements   AttributeVisitor,
     //*
     private static final boolean DEBUG = false;
     /*/
-    public  static       boolean DEBUG = true;
+    public  static       boolean DEBUG = false;
     //*/
 
 
@@ -313,7 +313,7 @@ implements   AttributeVisitor,
                 int handlerPC = -exceptionInfo.u2handlerPC;
                 if (handlerPC > 0)
                 {
-                    if (remappableInstructionOffset(handlerPC))
+                    if (remappableExceptionHandler(handlerPC))
                     {
                         exceptionInfo.u2handlerPC = remapInstructionOffset(handlerPC);
                     }
@@ -490,7 +490,7 @@ implements   AttributeVisitor,
         int handlerPC = exceptionInfo.u2handlerPC;
         exceptionInfo.u2handlerPC =
             !allowExternalExceptionHandlers ||
-            remappableInstructionOffset(handlerPC) ?
+            remappableExceptionHandler(handlerPC) ?
                 remapInstructionOffset(handlerPC) :
                 -handlerPC;
     }
@@ -674,13 +674,21 @@ implements   AttributeVisitor,
 
 
     /**
-     * Returns whether the given old instruction offset can be remapped at the
+     * Returns whether the given old exception handler can be remapped in the
+     * current code fragment.
      */
-    private boolean remappableInstructionOffset(int oldInstructionOffset)
+    private boolean remappableExceptionHandler(int oldInstructionOffset)
     {
-        return
-            oldInstructionOffset <= codeFragmentLengths[level] &&
-            instructionOffsetMap[level][oldInstructionOffset] > INVALID;
+        if (oldInstructionOffset > codeFragmentLengths[level])
+        {
+            return false;
+        }
+
+        int newInstructionOffset =
+            instructionOffsetMap[level][oldInstructionOffset];
+
+        return newInstructionOffset > INVALID &&
+               newInstructionOffset < codeLength;
     }
 
 
