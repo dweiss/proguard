@@ -15,6 +15,11 @@
   <target name = "all"     depends = "basic,options"/>
   <target name = "basic"   depends = "proguard,proguardgui,retrace"/>
   <target name = "options" depends = "anttask,wtkplugin"/>
+  
+  <presetdef name="javac">
+    <javac debug="true" target="1.5" source="1.5"
+      encoding="UTF-8" includeantruntime="false" optimize="true" />
+  </presetdef>
 
   <target name = "proguard" depends = "classes,lib">
     <javac nowarn      = "true"
