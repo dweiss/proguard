@@ -172,6 +172,7 @@ public class GPL
                packageName.startsWith("sbt")                    ||
                packageName.startsWith("xsbt")                   ||
                packageName.startsWith("eclipseme")              ||
+               packageName.startsWith("com.neomades")           ||
                packageName.startsWith("jg.j2me")                ||
                packageName.startsWith("jg.common")              ||
                packageName.startsWith("jg.buildengine");

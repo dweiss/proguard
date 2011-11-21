@@ -1720,45 +1720,52 @@ public class ProGuardGUI extends JFrame
             {
                 public void run()
                 {
-                    ProGuardGUI gui = new ProGuardGUI();
-                    gui.pack();
-
-                    Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-                    Dimension guiSize    = gui.getSize();
-                    gui.setLocation((screenSize.width - guiSize.width)   / 2,
-                                    (screenSize.height - guiSize.height) / 2);
-                    gui.show();
-
-                    // Start the splash animation, unless specified otherwise.
-                    int argIndex = 0;
-                    if (argIndex < args.length &&
-                        NO_SPLASH_OPTION.startsWith(args[argIndex]))
+                    try
                     {
-                        gui.skipSplash();
-                        argIndex++;
+                        ProGuardGUI gui = new ProGuardGUI();
+                        gui.pack();
+
+                        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+                        Dimension guiSize    = gui.getSize();
+                        gui.setLocation((screenSize.width - guiSize.width)   / 2,
+                                        (screenSize.height - guiSize.height) / 2);
+                        gui.show();
+
+                        // Start the splash animation, unless specified otherwise.
+                        int argIndex = 0;
+                        if (argIndex < args.length &&
+                            NO_SPLASH_OPTION.startsWith(args[argIndex]))
+                        {
+                            gui.skipSplash();
+                            argIndex++;
+                        }
+                        else
+                        {
+                            gui.startSplash();
+                        }
+
+                        // Load an initial configuration, if specified.
+                        if (argIndex < args.length)
+                        {
+                            gui.loadConfiguration(new File(args[argIndex]));
+                            argIndex++;
+                        }
+
+                        if (argIndex < args.length)
+                        {
+                            System.out.println(gui.getClass().getName() + ": ignoring extra arguments [" + args[argIndex] + "...]");
+                        }
                     }
-                    else
+                    catch (Exception e)
                     {
-                        gui.startSplash();
-                    }
-
-                    // Load an initial configuration, if specified.
-                    if (argIndex < args.length)
-                    {
-                        gui.loadConfiguration(new File(args[argIndex]));
-                        argIndex++;
-                    }
-
-                    if (argIndex < args.length)
-                    {
-                        System.out.println(gui.getClass().getName() + ": ignoring extra arguments [" + args[argIndex] + "...]");
+                        System.out.println("Internal problem starting the ProGuard GUI (" + e.getMessage() + ")");
                     }
                 }
             });
         }
         catch (Exception e)
         {
-            // Nothing.
+            System.out.println("Internal problem starting the ProGuard GUI (" + e.getMessage() + ")");
         }
     }
 }

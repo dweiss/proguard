@@ -433,10 +433,9 @@ implements   ClassVisitor,
                        Member         referencedMember)
     {
         System.out.println("MemberReferenceFixer:");
-        System.out.println("  Class file      = "+clazz.getName());
-        System.out.println("  Ref class       = "+referencedClass.getName());
-        System.out.println("  Ref member name = "+stringConstant.getString(clazz));
-        System.out.println("                 -> "+referencedMember.getName(referencedClass));
+        System.out.println("  ["+clazz.getName()+"]: String ["+
+                           stringConstant.getString(clazz)+"] -> ["+
+                           referencedClass.getName()+"."+referencedMember.getName(referencedClass)+" "+referencedMember.getDescriptor(referencedClass)+"]");
     }
 
 
@@ -446,11 +445,8 @@ implements   ClassVisitor,
                        Member      referencedMember)
     {
         System.out.println("MemberReferenceFixer:");
-        System.out.println("  Class file      = "+clazz.getName());
-        System.out.println("  Ref class       = "+referencedClass.getName());
-        System.out.println("  Ref member name = "+refConstant.getName(clazz));
-        System.out.println("                 -> "+referencedMember.getName(referencedClass));
-        System.out.println("  Ref descriptor  = "+refConstant.getType(clazz));
-        System.out.println("                 -> "+referencedMember.getDescriptor(referencedClass));
+        System.out.println("  ["+clazz.getName()+"]: ["+
+                           refConstant.getClassName(clazz)+"."+refConstant.getName(clazz)+" "+refConstant.getType(clazz)+"] -> ["+
+                           referencedClass.getName()+"."+referencedMember.getName(referencedClass)+" "+referencedMember.getDescriptor(referencedClass)+"]");
     }
 }
