@@ -298,22 +298,17 @@ implements   ClassVisitor,
         {
             Clazz referencedClass = enclosingMethodAttribute.referencedClass;
 
-            // Does it have a new class?
-            if (!enclosingMethodAttribute.getClassName(clazz).equals(referencedClass.getName()))
-            {
-                // Update the class index.
-                enclosingMethodAttribute.u2classIndex =
-                    new ConstantPoolEditor((ProgramClass)clazz).addClassConstant(referencedClass);
-            }
-
             // Does it have a new name or type?
-            if (!enclosingMethodAttribute.getName(clazz).equals(referencedMember.getName(referencedClass)) ||
-                !enclosingMethodAttribute.getType(clazz).equals(referencedMember.getDescriptor(referencedClass)))
+            String newName = referencedMember.getName(referencedClass);
+            String newType = referencedMember.getDescriptor(referencedClass);
+
+            if (!enclosingMethodAttribute.getName(clazz).equals(newName) ||
+                !enclosingMethodAttribute.getType(clazz).equals(newType))
             {
                 // Update the name and type index.
                 enclosingMethodAttribute.u2nameAndTypeIndex =
-                    new ConstantPoolEditor((ProgramClass)clazz).addNameAndTypeConstant(referencedMember.getName(referencedClass),
-                                                                                       referencedMember.getDescriptor(referencedClass));
+                    new ConstantPoolEditor((ProgramClass)clazz).addNameAndTypeConstant(newName,
+                                                                                       newType);
             }
         }
     }

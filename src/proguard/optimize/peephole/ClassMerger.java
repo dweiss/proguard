@@ -559,13 +559,18 @@ implements   ClassVisitor,
         public void visitProgramField(ProgramClass programClass, ProgramField programField)
         {
             // Copy the optimization info from the field that was just copied.
-            ProgramField                 copiedField = (ProgramField)programField.getVisitorInfo();
-            FieldOptimizationInfo info        = (FieldOptimizationInfo)copiedField.getVisitorInfo();
+            ProgramField copiedField = (ProgramField)programField.getVisitorInfo();
+            Object       info        = copiedField.getVisitorInfo();
 
-            programField.setVisitorInfo(new FieldOptimizationInfo(info));
+            programField.setVisitorInfo(info instanceof FieldOptimizationInfo ?
+                new FieldOptimizationInfo((FieldOptimizationInfo)info) :
+                info);
         }
 
 
-        public void visitProgramMethod(ProgramClass programClass, ProgramMethod programMethod) {}
+        public void visitProgramMethod(ProgramClass programClass, ProgramMethod programMethod)
+        {
+            // Linked methods share their optimization info.
+        }
     }
 }

@@ -21,35 +21,54 @@
 package proguard;
 
 import java.io.*;
-import java.net.URL;
 
 
 /**
- * A <code>WordReader</code> that returns words from a file or a URL.
+ * A <code>WordReader</code> that returns words from a line number reader.
  *
  * @author Eric Lafortune
  */
-public class FileWordReader extends LineWordReader
+public class LineWordReader extends WordReader
 {
+    private final LineNumberReader reader;
+    private final String           description;
+
+
     /**
-     * Creates a new FileWordReader for the given file.
+     * Creates a new LineWordReader for the given input.
      */
-    public FileWordReader(File file) throws IOException
+    public LineWordReader(LineNumberReader lineNumberReader,
+                          String           description,
+                          File             baseDir) throws IOException
     {
-        super(new LineNumberReader(new BufferedReader(new FileReader(file))),
-              "file '" + file.getPath() + "'",
-              file.getParentFile()
-        );
+        super(baseDir);
+
+        this.reader      = lineNumberReader;
+        this.description = description;
     }
 
 
-    /**
-     * Creates a new FileWordReader for the given URL.
-     */
-    public FileWordReader(URL url) throws IOException
+    // Implementations for WordReader.
+
+    protected String nextLine() throws IOException
     {
-        super(new LineNumberReader(new BufferedReader(new InputStreamReader(url.openStream()))),
-              "file '" + url.toString() + "'",
-              null);
+        return reader.readLine();
+    }
+
+
+    protected String lineLocationDescription()
+    {
+        return "line " + reader.getLineNumber() + " of " + description;
+    }
+
+
+    public void close() throws IOException
+    {
+        super.close();
+
+        if (reader != null)
+        {
+            reader.close();
+        }
     }
 }

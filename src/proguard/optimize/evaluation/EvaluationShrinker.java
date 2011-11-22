@@ -34,6 +34,8 @@ import proguard.evaluation.*;
 import proguard.evaluation.value.*;
 import proguard.optimize.info.*;
 
+import java.util.Arrays;
+
 /**
  * This AttributeVisitor simplifies the code attributes that it visits, based
  * on partial evaluation.
@@ -1671,10 +1673,7 @@ implements   AttributeVisitor
         {
             for (int offset = 0; offset < codeLength; offset++)
             {
-                for (int index = 0; index < maxLocals; index++)
-                {
-                    variablesNecessaryAfter[offset][index] = false;
-                }
+                Arrays.fill(variablesNecessaryAfter[offset], 0, maxLocals, false);
             }
         }
 
@@ -1687,10 +1686,7 @@ implements   AttributeVisitor
         {
             for (int offset = 0; offset < codeLength; offset++)
             {
-                for (int index = 0; index < maxStack; index++)
-                {
-                    stacksNecessaryAfter[offset][index] = false;
-                }
+                Arrays.fill(stacksNecessaryAfter[offset], 0, maxStack, false);
             }
         }
 
@@ -1703,10 +1699,7 @@ implements   AttributeVisitor
         {
             for (int offset = 0; offset < codeLength; offset++)
             {
-                for (int index = 0; index < maxStack; index++)
-                {
-                    stacksSimplifiedBefore[offset][index] = false;
-                }
+                Arrays.fill(stacksSimplifiedBefore[offset], 0, maxStack, false);
             }
         }
 
@@ -1716,10 +1709,7 @@ implements   AttributeVisitor
         }
         else
         {
-            for (int index = 0; index < codeLength; index++)
-            {
-                instructionsNecessary[index] = false;
-            }
+            Arrays.fill(instructionsNecessary, 0, codeLength, false);
         }
     }
 

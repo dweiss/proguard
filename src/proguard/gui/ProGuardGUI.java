@@ -1043,10 +1043,15 @@ public class ProGuardGUI extends JFrame
         dumpCheckBox                            .setSelected(configuration.dump               != null);
 
         printUsageTextField                     .setText(fileName(configuration.printUsage));
-        optimizationsTextField                  .setText(configuration.optimizations             == null ? OPTIMIZATIONS_DEFAULT                : ListUtil.commaSeparatedString(configuration.optimizations, true));
+        optimizationsTextField                  .setText(configuration.optimizations ==
+                                                         null ?
+                                                             OPTIMIZATIONS_DEFAULT :
+                                                             ListUtil.commaSeparatedString(configuration.optimizations, true));
         printMappingTextField                   .setText(fileName(configuration.printMapping));
         applyMappingTextField                   .setText(fileName(configuration.applyMapping));
         obfuscationDictionaryTextField          .setText(fileName(configuration.obfuscationDictionary));
+        classObfuscationDictionaryTextField     .setText(fileName(configuration.classObfuscationDictionary));
+        packageObfuscationDictionaryTextField   .setText(fileName(configuration.packageObfuscationDictionary));
         keepPackageNamesTextField               .setText(configuration.keepPackageNames          == null ? ""                                   : ClassUtil.externalClassName(ListUtil.commaSeparatedString(configuration.keepPackageNames, true)));
         flattenPackageHierarchyTextField        .setText(configuration.flattenPackageHierarchy);
         repackageClassesTextField               .setText(configuration.repackageClasses);

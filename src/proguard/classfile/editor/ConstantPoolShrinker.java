@@ -34,6 +34,8 @@ import proguard.classfile.instruction.visitor.InstructionVisitor;
 import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.*;
 
+import java.util.Arrays;
+
 /**
  * This ClassVisitor removes all unused entries from the constant pool.
  *
@@ -569,10 +571,7 @@ implements   ClassVisitor,
         }
 
         // Clear the remaining constant pool elements.
-        for (int index = counter; index < length; index++)
-        {
-            constantPool[index] = null;
-        }
+        Arrays.fill(constantPool, counter, length, null);
 
         return counter;
     }
