@@ -30,6 +30,8 @@ import proguard.classfile.editor.*;
 import proguard.classfile.util.*;
 import proguard.classfile.visitor.*;
 
+import java.util.Arrays;
+
 /**
  * This ClassVisitor removes constant pool entries, class members, and other
  * class elements that are not marked as being used.
@@ -363,10 +365,7 @@ implements   ClassVisitor,
         }
 
         // Clear the remaining constant pool elements.
-        for (int index = counter; index < length; index++)
-        {
-            constantPool[index] = null;
-        }
+        Arrays.fill(constantPool, counter, length, null);
 
         return counter;
     }
@@ -391,10 +390,7 @@ implements   ClassVisitor,
         }
 
         // Clear the remaining array elements.
-        for (int index = counter; index < length; index++)
-        {
-            array[index] = 0;
-        }
+        Arrays.fill(array, counter, length, 0);
 
         return counter;
     }
@@ -451,10 +447,10 @@ implements   ClassVisitor,
             }
         }
 
-        // Clear the remaining array elements.
-        for (int index = counter; index < length; index++)
+        // Clear any remaining array elements.
+        if (counter < length)
         {
-            array[index] = null;
+            Arrays.fill(array, counter, length, null);
         }
 
         return counter;

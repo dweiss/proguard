@@ -59,9 +59,21 @@ public class ConfigurationParser
     public ConfigurationParser(String[] args,
                                File     baseDir) throws IOException
     {
-        reader = new ArgumentWordReader(args, baseDir);
+        this(new ArgumentWordReader(args, baseDir));
+    }
 
-        readNextWord();
+
+    /**
+     * Creates a new ConfigurationParser for the given lines,
+     * with the given base directory.
+     */
+    public ConfigurationParser(String lines,
+                               String description,
+                               File   baseDir) throws IOException
+    {
+        this(new LineWordReader(new LineNumberReader(new StringReader(lines)),
+                                description,
+                                baseDir));
     }
 
 
@@ -70,9 +82,7 @@ public class ConfigurationParser
      */
     public ConfigurationParser(File file) throws IOException
     {
-        reader = new FileWordReader(file);
-
-        readNextWord();
+        this(new FileWordReader(file));
     }
 
 
@@ -81,7 +91,16 @@ public class ConfigurationParser
      */
     public ConfigurationParser(URL url) throws IOException
     {
-        reader = new FileWordReader(url);
+        this(new FileWordReader(url));
+    }
+
+
+    /**
+     * Creates a new ConfigurationParser for the given word reader.
+     */
+    public ConfigurationParser(WordReader reader) throws IOException
+    {
+        this.reader = reader;
 
         readNextWord();
     }
@@ -557,25 +576,15 @@ public class ConfigurationParser
         // Parse the class annotations and access modifiers until the class keyword.
         while (!ConfigurationConstants.CLASS_KEYWORD.equals(nextWord))
         {
-            // Parse the annotation type, if any.
-//            if (ConfigurationConstants.ANNOTATION_KEYWORD.equals(nextWord))
-//            {
-//                annotationType =
-//                    ClassUtil.internalType(
-//                    ListUtil.commaSeparatedString(
-//                    parseCommaSeparatedList("annotation type",
-//                                            true, false, false, true, false, null)));
-//
-//                continue;
-//            }
-
             // Strip the negating sign, if any.
-            String strippedWord = nextWord.startsWith(ConfigurationConstants.NEGATOR_KEYWORD) ?
+            boolean negated =
+                nextWord.startsWith(ConfigurationConstants.NEGATOR_KEYWORD);
+
+            String strippedWord = negated ?
                 nextWord.substring(1) :
                 nextWord;
 
             // Parse the class access modifiers.
-            // TODO: Distinguish annotation from annotation modifier.
             int accessFlag =
                 strippedWord.equals(ClassConstants.EXTERNAL_ACC_PUBLIC)     ? ClassConstants.INTERNAL_ACC_PUBLIC      :
                 strippedWord.equals(ClassConstants.EXTERNAL_ACC_FINAL)      ? ClassConstants.INTERNAL_ACC_FINAL       :
@@ -589,10 +598,11 @@ public class ConfigurationParser
             // Is it an annotation modifier?
             if (accessFlag == ClassConstants.INTERNAL_ACC_ANNOTATTION)
             {
-                // Is the next word actually an annotation type?
+                // Already read the next word.
                 readNextWord("annotation type or keyword '" + ClassConstants.EXTERNAL_ACC_INTERFACE + "'",
                              false, false);
 
+                // Is the next word actually an annotation type?
                 if (!nextWord.equals(ClassConstants.EXTERNAL_ACC_INTERFACE) &&
                     !nextWord.equals(ClassConstants.EXTERNAL_ACC_ENUM)      &&
                     !nextWord.equals(ConfigurationConstants.CLASS_KEYWORD))
@@ -603,11 +613,15 @@ public class ConfigurationParser
                         parseCommaSeparatedList("annotation type",
                                                 false, false, false, false, true, false, false, true, null), false);
 
+                    // Continue parsing the access modifier that we just read
+                    // in the next cycle.
                     continue;
                 }
+
+                // Otherwise just handle the annotation modifier.
             }
 
-            if (strippedWord.equals(nextWord))
+            if (!negated)
             {
                 requiredSetClassAccessFlags   |= accessFlag;
             }
@@ -615,7 +629,6 @@ public class ConfigurationParser
             {
                 requiredUnsetClassAccessFlags |= accessFlag;
             }
-
 
             if ((requiredSetClassAccessFlags &
                  requiredUnsetClassAccessFlags) != 0)
@@ -632,10 +645,14 @@ public class ConfigurationParser
                 break;
             }
 
-            readNextWord("keyword '" + ConfigurationConstants.CLASS_KEYWORD +
-                         "', '"      + ClassConstants.EXTERNAL_ACC_INTERFACE +
-                         "', or '"   + ClassConstants.EXTERNAL_ACC_ENUM + "'",
-                         false, true);
+            // Should we read the next word?
+            if (accessFlag != ClassConstants.INTERNAL_ACC_ANNOTATTION)
+            {
+                readNextWord("keyword '" + ConfigurationConstants.CLASS_KEYWORD +
+                             "', '"      + ClassConstants.EXTERNAL_ACC_INTERFACE +
+                             "', or '"   + ClassConstants.EXTERNAL_ACC_ENUM + "'",
+                             false, true);
+            }
         }
 
        // Parse the class name part.
