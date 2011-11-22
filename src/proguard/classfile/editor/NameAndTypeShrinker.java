@@ -29,6 +29,8 @@ import proguard.classfile.editor.ConstantPoolRemapper;
 import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.ClassVisitor;
 
+import java.util.Arrays;
+
 
 /**
  * This ClassVisitor removes NameAndType constant pool entries that are not
@@ -179,10 +181,7 @@ implements   ClassVisitor,
         }
 
         // Clear the remaining constant pool elements.
-        for (int index = counter; index < length; index++)
-        {
-            constantPool[index] = null;
-        }
+        Arrays.fill(constantPool, counter, length, null);
 
         return counter;
     }

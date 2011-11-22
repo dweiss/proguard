@@ -32,6 +32,8 @@ import proguard.classfile.editor.ConstantPoolRemapper;
 import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.*;
 
+import java.util.Arrays;
+
 
 /**
  * This ClassVisitor removes UTF-8 constant pool entries that are not used.
@@ -446,10 +448,7 @@ implements   ClassVisitor,
         }
 
         // Clear the remaining constant pool elements.
-        for (int index = counter; index < length; index++)
-        {
-            constantPool[index] = null;
-        }
+        Arrays.fill(constantPool, counter, length, null);
 
         return counter;
     }
