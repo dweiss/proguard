@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -26,7 +26,7 @@ import proguard.util.ListUtil;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
+import java.io.File;
 import java.util.List;
 
 /**
@@ -58,8 +58,8 @@ class ClassPathPanel extends ListPanel
         chooser.setMultiSelectionEnabled(true);
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         chooser.addChoosableFileFilter(
-            new ExtensionFileFilter(msg("jarWarEarZipExtensions"),
-                                    new String[] { ".jar", ".war", ".ear", ".zip" }));
+            new ExtensionFileFilter(msg("jarExtensions"),
+                                    new String[] { ".apk", ".ap_", ".jar", ".aar", ".war", ".ear", ".zip" }));
         chooser.setApproveButtonText(msg("ok"));
 
         filterDialog = new FilterDialog(owner, msg("enterFilter"));
@@ -267,7 +267,9 @@ class ClassPathPanel extends ListPanel
         ClassPathEntry firstEntry = (ClassPathEntry)listModel.get(index);
 
         filterDialog.setFilter(firstEntry.getFilter());
+        filterDialog.setApkFilter(firstEntry.getApkFilter());
         filterDialog.setJarFilter(firstEntry.getJarFilter());
+        filterDialog.setAarFilter(firstEntry.getAarFilter());
         filterDialog.setWarFilter(firstEntry.getWarFilter());
         filterDialog.setEarFilter(firstEntry.getEarFilter());
         filterDialog.setZipFilter(firstEntry.getZipFilter());
@@ -284,7 +286,9 @@ class ClassPathPanel extends ListPanel
         {
             ClassPathEntry entry = (ClassPathEntry)listModel.get(indices[index]);
             entry.setFilter(filterDialog.getFilter());
+            entry.setApkFilter(filterDialog.getApkFilter());
             entry.setJarFilter(filterDialog.getJarFilter());
+            entry.setAarFilter(filterDialog.getAarFilter());
             entry.setWarFilter(filterDialog.getWarFilter());
             entry.setEarFilter(filterDialog.getEarFilter());
             entry.setZipFilter(filterDialog.getZipFilter());
@@ -381,7 +385,9 @@ class ClassPathPanel extends ListPanel
             filter = appendFilter(filter, entry.getZipFilter());
             filter = appendFilter(filter, entry.getEarFilter());
             filter = appendFilter(filter, entry.getWarFilter());
+            filter = appendFilter(filter, entry.getAarFilter());
             filter = appendFilter(filter, entry.getJarFilter());
+            filter = appendFilter(filter, entry.getApkFilter());
             filter = appendFilter(filter, entry.getFilter());
 
             if (filter != null)

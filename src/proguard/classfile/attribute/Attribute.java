@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -84,7 +84,7 @@ public abstract class Attribute implements VisitorAccepter
      */
     public void accept(Clazz clazz, Field field, AttributeVisitor attributeVisitor)
     {
-        // Delegate the default invocation if the field is null anyway.
+        // Delegate to the default invocation if the field is null anyway.
         if (field == null)
         {
             accept(clazz, attributeVisitor);
@@ -100,7 +100,7 @@ public abstract class Attribute implements VisitorAccepter
      */
     public void accept(Clazz clazz, Method method, AttributeVisitor attributeVisitor)
     {
-        // Delegate the default invocation if the method is null anyway.
+        // Delegate to the default invocation if the method is null anyway.
         if (method == null)
         {
             accept(clazz, (Field)null, attributeVisitor);
@@ -116,7 +116,8 @@ public abstract class Attribute implements VisitorAccepter
      */
     public void accept(Clazz clazz, Method method, CodeAttribute codeAttribute, AttributeVisitor attributeVisitor)
     {
-        // Delegate the default invocation if the code attribute is null anyway.
+        // Delegate to the default invocation if the code attribute is null
+        // anyway.
         if (codeAttribute == null)
         {
             accept(clazz, method, attributeVisitor);

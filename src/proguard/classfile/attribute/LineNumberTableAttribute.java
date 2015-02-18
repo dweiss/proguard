@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -62,18 +62,92 @@ public class LineNumberTableAttribute extends Attribute
      */
     public int getLineNumber(int pc)
     {
-        for (int index = u2lineNumberTableLength-1 ; index >= 0 ; index--)
+        LineNumberInfo info = getLineNumberInfo(pc);
+
+        return info == null ? 0 : info.u2lineNumber;
+    }
+
+
+    /**
+     * Returns the source corresponding to the given byte code program
+     * counter.
+     */
+    public String getSource(int pc)
+    {
+        LineNumberInfo info = getLineNumberInfo(pc);
+
+        return info == null ? null : info.getSource();
+    }
+
+
+    /**
+     * Returns the line number info corresponding to the given byte code
+     * program counter.
+     */
+    public LineNumberInfo getLineNumberInfo(int pc)
+    {
+        for (int index = u2lineNumberTableLength-1; index >= 0; index--)
         {
             LineNumberInfo info = lineNumberTable[index];
             if (pc >= info.u2startPC)
             {
-                return info.u2lineNumber;
+                return info;
             }
         }
 
         return u2lineNumberTableLength > 0 ?
-            lineNumberTable[0].u2lineNumber :
-            0;
+            lineNumberTable[0] :
+            null;
+    }
+
+
+    /**
+     * Returns the lowest line number with the default null source,
+     * or 0 if there aren't any such line numbers.
+     */
+    public int getLowestLineNumber()
+    {
+        int lowestLineNumber = Integer.MAX_VALUE;
+
+        for (int index = 0; index < u2lineNumberTableLength; index++)
+        {
+            LineNumberInfo info = lineNumberTable[index];
+            if (info.getSource() == null)
+            {
+                int lineNumber = info.u2lineNumber;
+                if (lineNumber < lowestLineNumber)
+                {
+                    lowestLineNumber = lineNumber;
+                }
+            }
+        }
+
+        return lowestLineNumber == Integer.MAX_VALUE ? 0 : lowestLineNumber;
+    }
+
+
+    /**
+     * Returns the highest line number with the default null source,
+     * or 0 if there aren't any such line numbers.
+     */
+    public int getHighestLineNumber()
+    {
+        int highestLineNumber = 0;
+
+        for (int index = 0; index < u2lineNumberTableLength; index++)
+        {
+            LineNumberInfo info = lineNumberTable[index];
+            if (info.getSource() == null)
+            {
+                int lineNumber = info.u2lineNumber;
+                if (lineNumber > highestLineNumber)
+                {
+                    highestLineNumber = lineNumber;
+                }
+            }
+        }
+
+        return highestLineNumber;
     }
 
 

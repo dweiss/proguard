@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,6 @@
  */
 package proguard.classfile;
 
-import proguard.classfile.util.ClassUtil;
 import proguard.classfile.visitor.*;
 
 import java.util.*;
@@ -61,7 +60,16 @@ public class ClassPool
      */
     public void removeClass(Clazz clazz)
     {
-        classes.remove(clazz.getName());
+        removeClass(clazz.getName());
+    }
+
+
+    /**
+     * Removes the specified Clazz from the class pool.
+     */
+    public void removeClass(String className)
+    {
+        classes.remove(className);
     }
 
 

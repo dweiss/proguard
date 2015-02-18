@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -143,60 +143,73 @@ public class InstructionOffsetValue extends Category1Value
      */
     public final Value generalize(InstructionOffsetValue other)
     {
-        // If the values array of either is null, return the other one.
-        if (this.values == null)
+        // If the values array of either is null, we can return the other one.
+        int[] thisValues = this.values;
+        if (thisValues == null)
         {
             return other;
         }
 
-        if (other.values == null)
+        int[] otherValues = other.values;
+        if (otherValues == null)
         {
             return this;
         }
 
         // Compute the length of the union of the arrays.
-        int newLength = this.values.length;
-        for (int index = 0; index < other.values.length; index++)
+        int newLength = thisValues.length;
+        for (int index = 0; index < otherValues.length; index++)
         {
-            if (!this.contains(other.values[index]))
+            if (!this.contains(otherValues[index]))
             {
                 newLength++;
             }
         }
 
-        // If the length of the union array is equal to the length of the values
-        // array of either, return it.
-        if (newLength == other.values.length)
+        // If the length of the union array is equal to the length of the other
+        // values array, we can return it.
+        if (newLength == otherValues.length)
         {
             return other;
         }
 
-        // The ordering of the this array may not be right, so we can't just
-        // use it.
-        //if (newLength == this.values.length)
-        //{
-        //    return this;
-        //}
+        // If the length of the union array is equal to the length of this
+        // values array, we can return it. We have to make sure that the other
+        // values are at the end. We'll just test one special case, with a
+        // single other value.
+        if (newLength == this.values.length &&
+            otherValues.length == 1 &&
+            thisValues[thisValues.length-1] == otherValues[0])
+        {
+            return this;
+        }
 
         // Create the union array.
+        int newIndex = 0;
         int[] newValues = new int[newLength];
 
-        int newIndex = 0;
-
-        // Copy the values that are different from the other array.
-        for (int index = 0; index < this.values.length; index++)
+        // Is the length of the union array is equal to the sum of the lengths?
+        if (newLength == thisValues.length + otherValues.length)
         {
-            if (!other.contains(this.values[index]))
+            // We can just copy all values, because they are unique.
+            System.arraycopy(thisValues, 0, newValues, 0, thisValues.length);
+
+            newIndex = thisValues.length;
+        }
+        else
+        {
+            // Copy the values that are different from the other array.
+            for (int index = 0; index < thisValues.length; index++)
             {
-                newValues[newIndex++] = this.values[index];
+                if (!other.contains(thisValues[index]))
+                {
+                    newValues[newIndex++] = thisValues[index];
+                }
             }
         }
 
         // Copy the values from the other array.
-        for (int index = 0; index < other.values.length; index++)
-        {
-            newValues[newIndex++] = other.values[index];
-        }
+        System.arraycopy(otherValues, 0, newValues, newIndex, otherValues.length);
 
         return new InstructionOffsetValue(newValues);
     }
@@ -231,7 +244,7 @@ public class InstructionOffsetValue extends Category1Value
 
     public final String internalType()
     {
-        return String.valueOf(ClassConstants.INTERNAL_TYPE_INT);
+        return String.valueOf(ClassConstants.TYPE_INT);
     }
 
 

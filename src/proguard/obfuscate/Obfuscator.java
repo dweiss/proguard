@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -98,6 +98,16 @@ public class Obfuscator
         libraryClassPool.classesAccept(nameMarker);
         libraryClassPool.classesAccept(new AllMemberVisitor(nameMarker));
 
+        // We also keep the names of all methods of classes that are returned
+        // by dynamic method invocations. They may return dynamic
+        // implementations of interfaces. The method names then have to match
+        // with the invoke dynamic names.
+        programClassPool.classesAccept(
+            new ClassVersionFilter(ClassConstants.CLASS_VERSION_1_7,
+            new AllConstantVisitor(
+            new DynamicReturnedClassVisitor(
+            new AllMemberVisitor(nameMarker)))));
+
         // Mark attributes that have to be kept.
         AttributeVisitor attributeUsageMarker =
             new NonEmptyAttributeFilter(
@@ -105,7 +115,7 @@ public class Obfuscator
 
         AttributeVisitor optionalAttributeUsageMarker =
             configuration.keepAttributes == null ? null :
-                new AttributeNameFilter(new ListParser(new NameParser()).parse(configuration.keepAttributes),
+                new AttributeNameFilter(configuration.keepAttributes,
                                         attributeUsageMarker);
 
         programClassPool.classesAccept(
@@ -149,21 +159,27 @@ public class Obfuscator
         {
             MappingReader reader = new MappingReader(configuration.applyMapping);
             reader.pump(keeper);
-        }
 
-        // Print out a summary of the warnings if necessary.
-        int mappingWarningCount = warningPrinter.getWarningCount();
-        if (mappingWarningCount > 0)
-        {
-            System.err.println("Warning: there were " + mappingWarningCount +
-                                                        " kept classes and class members that were remapped anyway.");
-            System.err.println("         You should adapt your configuration or edit the mapping file.");
-
-            if (!configuration.ignoreWarnings)
+            // Print out a summary of the warnings if necessary.
+            int warningCount = warningPrinter.getWarningCount();
+            if (warningCount > 0)
             {
-                System.err.println("         If you are sure this remapping won't hurt,");
-                System.err.println("         you could try your luck using the '-ignorewarnings' option.");
-                throw new IOException("Please correct the above warnings first.");
+                System.err.println("Warning: there were " + warningCount +
+                                   " kept classes and class members that were remapped anyway.");
+                System.err.println("         You should adapt your configuration or edit the mapping file.");
+
+                if (!configuration.ignoreWarnings)
+                {
+                    System.err.println("         If you are sure this remapping won't hurt, you could try your luck");
+                    System.err.println("         using the '-ignorewarnings' option.");
+                }
+
+                System.err.println("         (http://proguard.sourceforge.net/manual/troubleshooting.html#mappingconflict1)");
+
+                if (!configuration.ignoreWarnings)
+                {
+                    throw new IOException("Please correct the above warnings first.");
+                }
             }
         }
 
@@ -224,20 +240,20 @@ public class Obfuscator
                     // the hierarchy.
                     new ClassHierarchyTraveler(true, false, false, true,
                     new AllMemberVisitor(
-                    new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                    new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                     new MemberNameCollector(configuration.overloadAggressively,
                                             descriptorMap)))),
 
                     // Collect all non-private member names anywhere in the hierarchy.
                     new ClassHierarchyTraveler(true, true, true, true,
                     new AllMemberVisitor(
-                    new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                    new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                     new MemberNameCollector(configuration.overloadAggressively,
                                             descriptorMap)))),
 
                     // Assign new names to all non-private members in this class.
                     new AllMemberVisitor(
-                    new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                    new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                     new MemberObfuscator(configuration.overloadAggressively,
                                          nameFactory,
                                          descriptorMap))),
@@ -258,13 +274,26 @@ public class Obfuscator
                     // Collect all non-private member names higher up the hierarchy.
                     new ClassHierarchyTraveler(false, true, true, false,
                     new AllMemberVisitor(
-                    new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                    new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                     new MemberNameCollector(configuration.overloadAggressively,
                                             descriptorMap)))),
 
+                    // Collect all member names from interfaces of abstract
+                    // classes down the hierarchy.
+                    // Due to an error in the JLS/JVMS, virtual invocations
+                    // may end up at a private method otherwise (Sun/Oracle
+                    // bugs #6691741 and #6684387, ProGuard bug #3471941,
+                    // and ProGuard test #1180).
+                    new ClassHierarchyTraveler(false, false, false, true,
+                    new ClassAccessFilter(ClassConstants.ACC_ABSTRACT, 0,
+                    new ClassHierarchyTraveler(false, false, true, false,
+                    new AllMemberVisitor(
+                    new MemberNameCollector(configuration.overloadAggressively,
+                                            descriptorMap))))),
+
                     // Assign new names to all private members in this class.
                     new AllMemberVisitor(
-                    new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                    new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                     new MemberObfuscator(configuration.overloadAggressively,
                                          nameFactory,
                                          descriptorMap))),
@@ -303,7 +332,7 @@ public class Obfuscator
                 // the hierarchy.
                 new ClassHierarchyTraveler(true, false, false, true,
                 new AllMemberVisitor(
-                new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                 new MemberNameCollector(configuration.overloadAggressively,
                                         descriptorMap)))),
 
@@ -311,7 +340,7 @@ public class Obfuscator
                 // higher up the hierarchy.
                 new ClassHierarchyTraveler(true, true, true, false,
                 new AllMemberVisitor(
-                new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                 new MemberNameCollector(configuration.overloadAggressively,
                                         descriptorMap)))),
 
@@ -319,7 +348,7 @@ public class Obfuscator
                 // in this class and higher up the hierarchy.
                 new ClassHierarchyTraveler(true, true, true, false,
                 new AllMemberVisitor(
-                new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                 new MemberNameConflictFixer(configuration.overloadAggressively,
                                             descriptorMap,
                                             warningPrinter,
@@ -344,14 +373,14 @@ public class Obfuscator
                 // Collect all non-private member names higher up the hierarchy.
                 new ClassHierarchyTraveler(false, true, true, false,
                 new AllMemberVisitor(
-                new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                 new MemberNameCollector(configuration.overloadAggressively,
                                         descriptorMap)))),
 
                 // Assign new names to all conflicting private members in this
                 // class.
                 new AllMemberVisitor(
-                new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                 new MemberNameConflictFixer(configuration.overloadAggressively,
                                             descriptorMap,
                                             warningPrinter,
@@ -375,6 +404,12 @@ public class Obfuscator
             {
                 System.err.println("         If you are sure the conflicts are harmless,");
                 System.err.println("         you could try your luck using the '-ignorewarnings' option.");
+            }
+
+            System.err.println("         (http://proguard.sourceforge.net/manual/troubleshooting.html#mappingconflict2)");
+
+            if (!configuration.ignoreWarnings)
+            {
                 throw new IOException("Please correct the above warnings first.");
             }
         }
@@ -382,14 +417,20 @@ public class Obfuscator
         // Print out the mapping, if requested.
         if (configuration.printMapping != null)
         {
-            PrintStream ps = isFile(configuration.printMapping) ?
-                new PrintStream(new BufferedOutputStream(new FileOutputStream(configuration.printMapping))) :
-                System.out;
+            PrintStream ps =
+                configuration.printMapping == Configuration.STD_OUT ? System.out :
+                    new PrintStream(
+                    new BufferedOutputStream(
+                    new FileOutputStream(configuration.printMapping)));
 
             // Print out items that will be removed.
             programClassPool.classesAcceptAlphabetically(new MappingPrinter(ps));
 
-            if (ps != System.out)
+            if (ps == System.out)
+            {
+                ps.flush();
+            }
+            else
             {
                 ps.close();
             }
@@ -410,8 +451,7 @@ public class Obfuscator
             configuration.allowAccessModification)
         {
             programClassPool.classesAccept(
-                new AllConstantVisitor(
-                new AccessFixer()));
+                new AccessFixer());
 
             // Fix the access flags of the inner classes information.
             programClassPool.classesAccept(
@@ -434,15 +474,5 @@ public class Obfuscator
         // Remove unused constants.
         programClassPool.classesAccept(
             new ConstantPoolShrinker());
-    }
-
-
-    /**
-     * Returns whether the given file is actually a file, or just a placeholder
-     * for the standard output.
-     */
-    private boolean isFile(File file)
-    {
-        return file.getPath().length() > 0;
     }
 }

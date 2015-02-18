@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,12 +20,14 @@
  */
 package proguard.evaluation.value;
 
+import proguard.classfile.*;
+
 /**
- * This class provides methods to create and reuse IntegerValue objects.
+ * This value factory creates particular values.
  *
  * @author Eric Lafortune
  */
-public class SpecificValueFactory
+public class ParticularValueFactory
 extends      ValueFactory
 {
     // Shared copies of Value objects, to avoid creating a lot of objects.
@@ -69,9 +71,9 @@ extends      ValueFactory
 
     public LongValue createLongValue(long value)
     {
-        return value == 0 ? LONG_VALUE_0 :
-               value == 1 ? LONG_VALUE_1 :
-                            new ParticularLongValue(value);
+        return value == 0L ? LONG_VALUE_0 :
+               value == 1L ? LONG_VALUE_1 :
+                             new ParticularLongValue(value);
     }
 
 
@@ -93,5 +95,17 @@ extends      ValueFactory
                             ? DOUBLE_VALUE_0 :
                value == 1.0 ? DOUBLE_VALUE_1 :
                               new ParticularDoubleValue(value);
+    }
+
+
+    public ReferenceValue createArrayReferenceValue(String       type,
+                                                    Clazz        referencedClass,
+                                                    IntegerValue arrayLength)
+    {
+        return type == null ?
+            REFERENCE_VALUE_NULL :
+            new ArrayReferenceValue(ClassConstants.TYPE_ARRAY + type,
+                                    referencedClass,
+                                    arrayLength);
     }
 }

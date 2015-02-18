@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,7 @@ package proguard.optimize.info;
 
 import proguard.classfile.*;
 import proguard.classfile.util.SimplifiedVisitor;
-import proguard.classfile.visitor.*;
+import proguard.classfile.visitor.ClassVisitor;
 
 /**
  * This ClassVisitor marks all classes that contain static initializers.
@@ -37,8 +37,8 @@ implements   ClassVisitor
 
     public void visitAnyClass(Clazz clazz)
     {
-        if (clazz.findMethod(ClassConstants.INTERNAL_METHOD_NAME_CLINIT,
-                             ClassConstants.INTERNAL_METHOD_TYPE_CLINIT) != null)
+        if (clazz.findMethod(ClassConstants.METHOD_NAME_CLINIT,
+                             ClassConstants.METHOD_TYPE_CLINIT) != null)
         {
             setStaticInitializer(clazz);
         }

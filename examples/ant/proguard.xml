@@ -24,6 +24,11 @@
 
     <libraryjar file="${java.home}/lib/rt.jar" />
     <libraryjar file="/usr/local/java/ant/lib/ant.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.1/lib/plugins/gradle-plugins-2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.1/lib/gradle-base-services-2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.1/lib/gradle-base-services-groovy-2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.1/lib/gradle-core-2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.1/lib/groovy-all-2.3.6.jar" />
     <libraryjar file="/usr/local/java/wtk2.5.2/wtklib/kenv.zip" />
 
     <!-- Adapt the resource file names, based on the corresponding obfuscated
@@ -67,6 +72,12 @@
       <method access="public" type="void" name="set*" parameters="***" />
       <method access="public" type="void" name="add*" parameters="***" />
     </keepclassmembers>
+
+    <!-- If we have the Gradle jars, we can properly process the Gradle task. -->
+
+    <keep access="public" name="proguard.gradle.*">
+      <method access="public" />
+    </keep>
 
     <!-- If we have kenv.zip, we can process the J2ME WTK plugin. -->
 

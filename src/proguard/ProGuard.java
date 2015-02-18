@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,11 +20,13 @@
  */
 package proguard;
 
-import proguard.classfile.ClassPool;
-import proguard.classfile.editor.ClassElementSorter;
+import proguard.classfile.*;
+import proguard.classfile.attribute.visitor.AllAttributeVisitor;
+import proguard.classfile.editor.*;
 import proguard.classfile.visitor.*;
 import proguard.obfuscate.Obfuscator;
-import proguard.optimize.*;
+import proguard.optimize.Optimizer;
+import proguard.optimize.peephole.LineNumberLinearizer;
 import proguard.preverify.*;
 import proguard.shrink.Shrinker;
 
@@ -37,7 +39,7 @@ import java.io.*;
  */
 public class ProGuard
 {
-    public static final String VERSION = "ProGuard, version 4.7 beta3";
+    public static final String VERSION = "ProGuard, version 5.2";
 
     private final Configuration configuration;
     private       ClassPool     programClassPool = new ClassPool();
@@ -68,6 +70,8 @@ public class ProGuard
             printConfiguration();
         }
 
+        new ConfigurationChecker(configuration).check();
+
         if (configuration.programJars != null     &&
             configuration.programJars.hasOutput() &&
             new UpToDateChecker(configuration).check())
@@ -76,6 +80,14 @@ public class ProGuard
         }
 
         readInput();
+
+        if (configuration.shrink    ||
+            configuration.optimize  ||
+            configuration.obfuscate ||
+            configuration.preverify)
+        {
+            clearPreverification();
+        }
 
         if (configuration.printSeeds != null ||
             configuration.shrink    ||
@@ -130,9 +142,19 @@ public class ProGuard
             }
         }
 
+        if (configuration.optimize)
+        {
+            linearizeLineNumbers();
+        }
+
         if (configuration.obfuscate)
         {
             obfuscate();
+        }
+
+        if (configuration.optimize)
+        {
+            trimLineNumbers();
         }
 
         if (configuration.preverify)
@@ -340,6 +362,39 @@ public class ProGuard
 
 
     /**
+     * Disambiguates the line numbers of all program classes, after
+     * optimizations like method inlining and class merging.
+     */
+    private void linearizeLineNumbers()
+    {
+        programClassPool.classesAccept(new LineNumberLinearizer());
+    }
+
+
+    /**
+     * Trims the line number table attributes of all program classes.
+     */
+    private void trimLineNumbers()
+    {
+        programClassPool.classesAccept(new AllAttributeVisitor(true,
+                                       new LineNumberTableAttributeTrimmer()));
+    }
+
+
+    /**
+     * Clears any JSE preverification information from the program classes.
+     */
+    private void clearPreverification()
+    {
+        programClassPool.classesAccept(
+            new ClassVersionFilter(ClassConstants.CLASS_VERSION_1_6,
+            new AllMethodVisitor(
+            new AllAttributeVisitor(
+            new NamedAttributeDeleter(ClassConstants.ATTR_StackMapTable)))));
+    }
+
+
+    /**
      * Performs the preverification step.
      */
     private void preverify()
@@ -407,9 +462,10 @@ public class ProGuard
     private PrintStream createPrintStream(File file)
     throws FileNotFoundException
     {
-        return isFile(file) ?
-            new PrintStream(new BufferedOutputStream(new FileOutputStream(file))) :
-            System.out;
+        return file == Configuration.STD_OUT ? System.out :
+            new PrintStream(
+            new BufferedOutputStream(
+            new FileOutputStream(file)));
     }
 
 
@@ -436,7 +492,11 @@ public class ProGuard
      */
     private String fileName(File file)
     {
-        if (isFile(file))
+        if (file == Configuration.STD_OUT)
+        {
+            return "standard output";
+        }
+        else
         {
             try
             {
@@ -447,20 +507,6 @@ public class ProGuard
                 return file.getPath();
             }
         }
-        else
-        {
-            return "standard output";
-        }
-    }
-
-
-    /**
-     * Returns whether the given file is actually a file, or just a placeholder
-     * for the standard output.
-     */
-    private boolean isFile(File file)
-    {
-        return file.getPath().length() > 0;
     }
 
 
@@ -482,8 +528,8 @@ public class ProGuard
         try
         {
             // Parse the options specified in the command line arguments.
-            ConfigurationParser parser = new ConfigurationParser(args);
-
+            ConfigurationParser parser = new ConfigurationParser(args,
+                                                                 System.getProperties());
             try
             {
                 parser.parse(configuration);

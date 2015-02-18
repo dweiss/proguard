@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -70,13 +70,13 @@ public class ProGuardGUI extends JFrame
     private final JCheckBox[]              boilerplateKeepCheckBoxes;
     private final JTextField[]             boilerplateKeepTextFields;
 
-    private final KeepSpecificationsPanel additionalKeepPanel = new KeepSpecificationsPanel(this, true, false, false, false, false);
+    private final KeepSpecificationsPanel additionalKeepPanel = new KeepSpecificationsPanel(this, true, false, false, false, false, false);
 
     private       KeepClassSpecification[] boilerplateKeepNames;
     private final JCheckBox[]              boilerplateKeepNamesCheckBoxes;
     private final JTextField[]             boilerplateKeepNamesTextFields;
 
-    private final KeepSpecificationsPanel additionalKeepNamesPanel = new KeepSpecificationsPanel(this, true, false, true, false, false);
+    private final KeepSpecificationsPanel additionalKeepNamesPanel = new KeepSpecificationsPanel(this, true, false, false, true, false, false);
 
     private       ClassSpecification[] boilerplateNoSideEffectMethods;
     private final JCheckBox[]          boilerplateNoSideEffectMethodCheckBoxes;
@@ -202,13 +202,13 @@ public class ProGuardGUI extends JFrame
         splashPanelConstraints.anchor    = GridBagConstraints.NORTHWEST;
         //splashPanelConstraints.insets    = constraints.insets;
 
-        GridBagConstraints welcomeTextAreaConstraints = new GridBagConstraints();
-        welcomeTextAreaConstraints.gridwidth = GridBagConstraints.REMAINDER;
-        welcomeTextAreaConstraints.fill      = GridBagConstraints.NONE;
-        welcomeTextAreaConstraints.weightx   = 1.0;
-        welcomeTextAreaConstraints.weighty   = 0.01;
-        welcomeTextAreaConstraints.anchor    = GridBagConstraints.CENTER;//NORTHWEST;
-        welcomeTextAreaConstraints.insets    = new Insets(20, 40, 20, 40);
+        GridBagConstraints welcomePaneConstraints = new GridBagConstraints();
+        welcomePaneConstraints.gridwidth = GridBagConstraints.REMAINDER;
+        welcomePaneConstraints.fill      = GridBagConstraints.NONE;
+        welcomePaneConstraints.weightx   = 1.0;
+        welcomePaneConstraints.weighty   = 0.01;
+        welcomePaneConstraints.anchor    = GridBagConstraints.CENTER;//NORTHWEST;
+        welcomePaneConstraints.insets    = new Insets(20, 40, 20, 40);
 
         GridBagConstraints panelConstraints = new GridBagConstraints();
         panelConstraints.gridwidth = GridBagConstraints.REMAINDER;
@@ -295,18 +295,19 @@ public class ProGuardGUI extends JFrame
         splashPanel = new SplashPanel(splash, 0.5, 5500L);
         splashPanel.setPreferredSize(new Dimension(0, 200));
 
-        JTextArea welcomeTextArea = new JTextArea(msg("proGuardInfo"), 18, 50);
-        welcomeTextArea.setOpaque(false);
-        welcomeTextArea.setEditable(false);
-        welcomeTextArea.setLineWrap(true);
-        welcomeTextArea.setWrapStyleWord(true);
-        welcomeTextArea.setPreferredSize(new Dimension(0, 0));
-        welcomeTextArea.setBorder(new EmptyBorder(20, 20, 20, 20));
-        addBorder(welcomeTextArea, "welcome");
+        JEditorPane welcomePane = new JEditorPane("text/html", msg("proGuardInfo"));
+        welcomePane.setPreferredSize(new Dimension(640, 350));
+        // The constant HONOR_DISPLAY_PROPERTIES isn't present yet in JDK 1.4.
+        //welcomePane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+        welcomePane.putClientProperty("JEditorPane.honorDisplayProperties", Boolean.TRUE);
+        welcomePane.setOpaque(false);
+        welcomePane.setEditable(false);
+        welcomePane.setBorder(new EmptyBorder(20, 20, 20, 20));
+        addBorder(welcomePane, "welcome");
 
         JPanel proGuardPanel = new JPanel(layout);
         proGuardPanel.add(splashPanel,      splashPanelConstraints);
-        proGuardPanel.add(welcomeTextArea,  welcomeTextAreaConstraints);
+        proGuardPanel.add(welcomePane,  welcomePaneConstraints);
 
         // Create the input panel.
         // TODO: properly clone the ClassPath objects.
@@ -632,11 +633,14 @@ public class ProGuardGUI extends JFrame
         reTracePanel      .add(tip(loadStackTraceButton,   "loadStackTraceTip"),      bottomButtonConstraints);
         reTracePanel      .add(tip(reTraceButton,          "reTraceTip"),             lastBottomButtonConstraints);
 
+        // Add the main tabs to the frame.
+        getContentPane().add(tabs);
+
+        // Pack the entire GUI before setting some default values.
+        pack();
+
         // Initialize the GUI settings to reasonable defaults.
         loadConfiguration(this.getClass().getResource(DEFAULT_CONFIGURATION));
-
-        // Add the main tabs to the frame and pack it.
-        getContentPane().add(tabs);
     }
 
 
@@ -662,7 +666,9 @@ public class ProGuardGUI extends JFrame
         {
             // Parse the boilerplate configuration file.
             ConfigurationParser parser = new ConfigurationParser(
-                this.getClass().getResource(BOILERPLATE_CONFIGURATION));
+                this.getClass().getResource(BOILERPLATE_CONFIGURATION),
+                System.getProperties());
+
             Configuration configuration = new Configuration();
 
             try
@@ -1043,10 +1049,7 @@ public class ProGuardGUI extends JFrame
         dumpCheckBox                            .setSelected(configuration.dump               != null);
 
         printUsageTextField                     .setText(fileName(configuration.printUsage));
-        optimizationsTextField                  .setText(configuration.optimizations ==
-                                                         null ?
-                                                             OPTIMIZATIONS_DEFAULT :
-                                                             ListUtil.commaSeparatedString(configuration.optimizations, true));
+        optimizationsTextField                  .setText(configuration.optimizations             == null ? OPTIMIZATIONS_DEFAULT                : ListUtil.commaSeparatedString(configuration.optimizations, true));
         printMappingTextField                   .setText(fileName(configuration.printMapping));
         applyMappingTextField                   .setText(fileName(configuration.applyMapping));
         obfuscationDictionaryTextField          .setText(fileName(configuration.obfuscationDictionary));
@@ -1347,7 +1350,9 @@ public class ProGuardGUI extends JFrame
         try
         {
             // Parse the configuration file.
-            ConfigurationParser parser = new ConfigurationParser(file);
+            ConfigurationParser parser = new ConfigurationParser(file,
+                                                                 System.getProperties());
+
             Configuration configuration = new Configuration();
 
             try
@@ -1387,7 +1392,9 @@ public class ProGuardGUI extends JFrame
         try
         {
             // Parse the configuration file.
-            ConfigurationParser parser = new ConfigurationParser(url);
+            ConfigurationParser parser = new ConfigurationParser(url,
+                                                                 System.getProperties());
+
             Configuration configuration = new Configuration();
 
             try
@@ -1652,7 +1659,11 @@ public class ProGuardGUI extends JFrame
      */
     private String fileName(File file)
     {
-        if (isFile(file))
+        if (file == null)
+        {
+            return "";
+        }
+        else
         {
             try
             {
@@ -1663,21 +1674,6 @@ public class ProGuardGUI extends JFrame
                 return file.getPath();
             }
         }
-        else
-        {
-            return "";
-        }
-    }
-
-
-    /**
-     * Returns whether the given file is actually a file, or just a placeholder
-     * for the standard output.
-     */
-    private boolean isFile(File file)
-    {
-        return file != null &&
-               file.getPath().length() > 0;
     }
 
 
@@ -1728,7 +1724,6 @@ public class ProGuardGUI extends JFrame
                     try
                     {
                         ProGuardGUI gui = new ProGuardGUI();
-                        gui.pack();
 
                         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
                         Dimension guiSize    = gui.getSize();

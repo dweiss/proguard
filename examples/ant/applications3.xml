@@ -43,13 +43,13 @@
 
     <!-- Preserve all native method names and the names of their classes. -->
 
-    <keepclasseswithmembernames>
+    <keepclasseswithmembernames includedescriptorclasses="true">
       <method access="native" />
     </keepclasseswithmembernames>
 
     <!-- Preserve the methods that are required in all enumeration classes. -->
 
-    <keepclassmembers extends="java.lang.Enum">
+    <keepclassmembers allowoptimization="true" type="enum">
       <method access="public static"
               type="**[]"
               name="values"

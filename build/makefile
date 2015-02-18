@@ -1,25 +1,34 @@
 # GNU/Linux makefile for ProGuard.
 
-ANT_HOME = /usr/local/java/ant
-WTK_HOME = /usr/local/java/wtk
+ANT_HOME    = /usr/local/java/ant
+GRADLE_HOME = /usr/local/java/gradle
+WTK_HOME    = /usr/local/java/wtk
 
 PROGUARD_HOME := $(subst ./..,..,$(subst /build/..,/,$(dir $(MAKEFILE_LIST))..))
 SRC     = $(PROGUARD_HOME)/src
 CLASSES = $(PROGUARD_HOME)/classes
 LIB     = $(PROGUARD_HOME)/lib
 
-ANT_JAR = $(ANT_HOME)/lib/ant.jar
-WTK_JAR = $(WTK_HOME)/wtklib/kenv.zip
+ANT_JAR     = $(ANT_HOME)/lib/ant.jar
+GRADLE_JARS = $(GRADLE_HOME)/lib/plugins/gradle-plugins-2.2.1.jar \
+              $(GRADLE_HOME)/lib/gradle-base-services-2.2.1.jar \
+              $(GRADLE_HOME)/lib/gradle-base-services-groovy-2.2.1.jar \
+              $(GRADLE_HOME)/lib/gradle-core-2.2.1.jar \
+              $(GRADLE_HOME)/lib/groovy-all-2.3.6.jar
+WTK_JAR     = $(WTK_HOME)/wtklib/kenv.zip
 
-CLASSPATH = $(ANT_JAR):$(WTK_JAR)
+NOTHING:=
+SPACE:=$(NOTHING) $(NOTHING)
+CLASSPATH = $(ANT_JAR):$(subst $(SPACE),:,$(GRADLE_JARS)):$(WTK_JAR)
 
 PROGUARD     = proguard/ProGuard
 PROGUARD_GUI = proguard/gui/ProGuardGUI
 RETRACE      = proguard/retrace/ReTrace
 ANT_TASK     = proguard/ant/ProGuardTask
+GRADLE_TASK  = proguard/gradle/ProGuardTask
 WTK_PLUGIN   = proguard/wtk/ProGuardObfuscator
 
-TARGETS = $(PROGUARD) $(PROGUARD_GUI) $(RETRACE) $(ANT_TASK) $(WTK_PLUGIN)
+TARGETS = $(PROGUARD) $(PROGUARD_GUI) $(RETRACE) $(ANT_TASK) $(GRADLE_TASK) $(WTK_PLUGIN)
 
 JAVAC_OPTIONS = -nowarn -Xlint:none -classpath $(CLASSPATH) -sourcepath $(SRC) -d $(CLASSES)
 
@@ -39,7 +48,7 @@ endef
 
 all:     basic options
 basic:   proguard proguardgui retrace
-options: anttask wtkplugin
+options: anttask gradletask wtkplugin
 
 proguard: $(PROGUARD)
 	$(createjar)
@@ -54,6 +63,11 @@ retrace: $(RETRACE)
 anttask: $(ANT_JAR)
 anttask: $(PROGUARD)
 anttask: $(ANT_TASK)
+	$(updatejar)
+
+gradletask: $(GRADLE_JARS)
+gradletask: $(PROGUARD)
+gradletask: $(GRADLE_TASK)
 	$(updatejar)
 
 wtkplugin: $(WTK_JAR)
@@ -85,10 +99,9 @@ $(CLASSES)/%.properties $(CLASSES)/%.png $(CLASSES)/%.gif $(CLASSES)/%.pro:
 	cp $(subst $(CLASSES),$(SRC),$@) $@
 
 %.jar %.zip:
-	echo "Please make sure the path to $@ is set"
-	echo "correctly in this $(strip $(MAKEFILE_LIST))."
-	echo "Alternatively, if you don't need the corresponding option,"
-	echo "you can run `make' with the option -k."
-	find $@
+	@echo "Please make sure the path to $@ is set"
+	@echo "correctly in this $(strip $(MAKEFILE_LIST))."
+	@echo "Alternatively, if you don't need the corresponding option,"
+	@echo "you can run `make' with the option -k."
 
 .PHONY: all basic options proguard proguardgui retrace anttask wtkplugin clean $(TARGETS) $(OPTIONAL_TARGETS)

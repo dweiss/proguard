@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -190,6 +190,10 @@ public class ConfigurationWriter
                 // Append the filters, if any.
                 boolean filtered = false;
 
+                // For backward compatibility, the aar and apk filters come
+                // first.
+                filtered = writeFilter(filtered, entry.getAarFilter());
+                filtered = writeFilter(filtered, entry.getApkFilter());
                 filtered = writeFilter(filtered, entry.getZipFilter());
                 filtered = writeFilter(filtered, entry.getEarFilter());
                 filtered = writeFilter(filtered, entry.getWarFilter());
@@ -342,7 +346,13 @@ public class ConfigurationWriter
         // Compose the option name.
         String optionName = optionNames[keepClassSpecification.markConditionally ? 2 :
                                         keepClassSpecification.markClasses       ? 0 :
-                                                                              1];
+                                                                                   1];
+
+        if (keepClassSpecification.markDescriptorClasses)
+        {
+            optionName += ConfigurationConstants.ARGUMENT_SEPARATOR_KEYWORD +
+                          ConfigurationConstants.INCLUDE_DESCRIPTOR_CLASSES_SUBOPTION;
+        }
 
         if (keepClassSpecification.allowShrinking)
         {
@@ -409,8 +419,8 @@ public class ConfigurationWriter
         // keyword earlier.
         if (((classSpecification.requiredSetAccessFlags |
               classSpecification.requiredUnsetAccessFlags) &
-             (ClassConstants.INTERNAL_ACC_INTERFACE |
-              ClassConstants.INTERNAL_ACC_ENUM)) == 0)
+             (ClassConstants.ACC_INTERFACE |
+              ClassConstants.ACC_ENUM)) == 0)
         {
             writer.print(ConfigurationConstants.CLASS_KEYWORD);
         }
@@ -566,7 +576,7 @@ public class ConfigurationWriter
                 writer.print(descriptor == null ? name == null ?
                     ConfigurationConstants.ANY_METHOD_KEYWORD :
                     ConfigurationConstants.ANY_TYPE_KEYWORD + ' ' + name + ConfigurationConstants.OPEN_ARGUMENTS_KEYWORD + ConfigurationConstants.ANY_ARGUMENTS_KEYWORD + ConfigurationConstants.CLOSE_ARGUMENTS_KEYWORD :
-                    ClassUtil.externalFullMethodDescription(ClassConstants.INTERNAL_METHOD_NAME_INIT,
+                    ClassUtil.externalFullMethodDescription(ClassConstants.METHOD_NAME_INIT,
                                                             0,
                                                             name == null ? ConfigurationConstants.ANY_CLASS_MEMBER_KEYWORD : name,
                                                             descriptor));

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -40,9 +40,9 @@ public class AccessUtil
 
     // The mask of access flags.
     private static final int ACCESS_MASK =
-        ClassConstants.INTERNAL_ACC_PUBLIC  |
-        ClassConstants.INTERNAL_ACC_PRIVATE |
-        ClassConstants.INTERNAL_ACC_PROTECTED;
+        ClassConstants.ACC_PUBLIC  |
+        ClassConstants.ACC_PRIVATE |
+        ClassConstants.ACC_PROTECTED;
 
 
     /**
@@ -56,10 +56,10 @@ public class AccessUtil
     {
         switch (accessFlags & ACCESS_MASK)
         {
-            case ClassConstants.INTERNAL_ACC_PRIVATE:   return PRIVATE;
-            default:                                    return PACKAGE_VISIBLE;
-            case ClassConstants.INTERNAL_ACC_PROTECTED: return PROTECTED;
-            case ClassConstants.INTERNAL_ACC_PUBLIC:    return PUBLIC;
+            case ClassConstants.ACC_PRIVATE:   return PRIVATE;
+            default:                           return PACKAGE_VISIBLE;
+            case ClassConstants.ACC_PROTECTED: return PROTECTED;
+            case ClassConstants.ACC_PUBLIC:    return PUBLIC;
         }
     }
 
@@ -78,25 +78,25 @@ public class AccessUtil
     {
         switch (accessLevel)
         {
-            case PRIVATE:   return ClassConstants.INTERNAL_ACC_PRIVATE;
+            case PRIVATE:   return ClassConstants.ACC_PRIVATE;
             default:        return 0;
-            case PROTECTED: return ClassConstants.INTERNAL_ACC_PROTECTED;
-            case PUBLIC:    return ClassConstants.INTERNAL_ACC_PUBLIC;
+            case PROTECTED: return ClassConstants.ACC_PROTECTED;
+            case PUBLIC:    return ClassConstants.ACC_PUBLIC;
         }
     }
 
 
     /**
      * Replaces the access part of the given access flags.
-     * @param accessFlags the internal access flags.
-     * @param accessFlags the new internal access flags.
+     * @param accessFlags    the internal access flags.
+     * @param newAccessFlags the new internal access flags.
      */
     public static int replaceAccessFlags(int accessFlags, int newAccessFlags)
     {
         // A private class member should not be explicitly final.
-        if (newAccessFlags == ClassConstants.INTERNAL_ACC_PRIVATE)
+        if (newAccessFlags == ClassConstants.ACC_PRIVATE)
         {
-            accessFlags &= ~ClassConstants.INTERNAL_ACC_FINAL;
+            accessFlags &= ~ClassConstants.ACC_FINAL;
         }
 
         return (accessFlags    & ~ACCESS_MASK) |

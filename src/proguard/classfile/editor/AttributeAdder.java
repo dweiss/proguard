@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -27,6 +27,8 @@ import proguard.classfile.attribute.preverification.*;
 import proguard.classfile.attribute.visitor.AttributeVisitor;
 import proguard.classfile.util.SimplifiedVisitor;
 
+import java.util.Arrays;
+
 /**
  * This AttributeVisitor adds all attributes that it visits to the given
  * target class, class member, or attribute.
@@ -41,6 +43,7 @@ implements   AttributeVisitor
     private static final int[]           EMPTY_INTS        = new int[0];
     private static final Attribute[]     EMPTY_ATTRIBUTES  = new Attribute[0];
     private static final ExceptionInfo[] EMPTY_EXCEPTIONS  = new ExceptionInfo[0];
+    private static final Annotation[]    EMPTY_ANNOTATIONS = new Annotation[0];
 
 
     private final ProgramClass  targetClass;
@@ -138,16 +141,14 @@ implements   AttributeVisitor
 
     public void visitInnerClassesAttribute(Clazz clazz, InnerClassesAttribute innerClassesAttribute)
     {
-        // TODO: Implement method.
-        // Note that the attribute may already be present.
-//        // Create a copy of the attribute.
-//        InnerClassesAttribute newInnerClassesAttribute =
-//            new InnerClassesAttribute(constantAdder.addConstant(clazz, innerClassesAttribute.u2attributeNameIndex),
-//                                      0,
-//                                      null);
-//
-//        // Add it to the target class.
-//        attributesEditor.addClassAttribute(newInnerClassesAttribute);
+        // Create a copy of the attribute.
+        InnerClassesAttribute newInnerClassesAttribute =
+            new InnerClassesAttribute(constantAdder.addConstant(clazz, innerClassesAttribute.u2attributeNameIndex),
+                                      0,
+                                      null);
+
+        // Add it to the target class.
+        attributesEditor.addAttribute(newInnerClassesAttribute);
     }
 
 
@@ -216,6 +217,24 @@ implements   AttributeVisitor
     }
 
 
+    public void visitMethodParametersAttribute(Clazz clazz, Method method, MethodParametersAttribute methodParametersAttribute)
+    {
+        // Create a new local variable table attribute.
+        MethodParametersAttribute newMethodParametersAttribute =
+            new MethodParametersAttribute(constantAdder.addConstant(clazz, methodParametersAttribute.u2attributeNameIndex),
+                                          methodParametersAttribute.u1parametersCount,
+                                          new ParameterInfo[methodParametersAttribute.u1parametersCount]);
+
+        // Add the local variables.
+        methodParametersAttribute.parametersAccept(clazz,
+                                                   method,
+                                                   new ParameterInfoAdder(targetClass, newMethodParametersAttribute));
+
+        // Add it to the target.
+        attributesEditor.addAttribute(newMethodParametersAttribute);
+    }
+
+
     public void visitExceptionsAttribute(Clazz clazz, Method method, ExceptionsAttribute exceptionsAttribute)
     {
         // Create a new exceptions attribute.
@@ -273,6 +292,20 @@ implements   AttributeVisitor
                                        new ExceptionInfoAdder(targetClass,
                                                               codeAttributeComposer));
 
+        // Add a line number if there wasn't a line number table before,
+        // so we keep track of the source.
+        if (codeAttribute.getAttribute(clazz, ClassConstants.ATTR_LineNumberTable) == null)
+        {
+            String source =
+                clazz.getName()             + '.' +
+                method.getName(clazz)       +
+                method.getDescriptor(clazz) +
+                ":0:0";
+
+            codeAttributeComposer.insertLineNumber(
+                new ExtendedLineNumberInfo(0, 0, source));
+        }
+
         codeAttributeComposer.endCodeFragment();
 
         // Add the attributes.
@@ -314,10 +347,10 @@ implements   AttributeVisitor
                                          new LineNumberInfo[lineNumberTableAttribute.u2lineNumberTableLength]);
 
         // Add the line numbers.
-        lineNumberTableAttribute.lineNumbersAccept(clazz,
-                                                   method,
-                                                   codeAttribute,
-                                                   new LineNumberInfoAdder(newLineNumberTableAttribute));
+        lineNumberTableAttribute.accept(clazz,
+                                        method,
+                                        codeAttribute,
+                                        new LineNumberInfoAdder(newLineNumberTableAttribute));
 
         // Add it to the target.
         attributesEditor.addAttribute(newLineNumberTableAttribute);
@@ -401,11 +434,16 @@ implements   AttributeVisitor
     public void visitRuntimeVisibleParameterAnnotationsAttribute(Clazz clazz, Method method, RuntimeVisibleParameterAnnotationsAttribute runtimeVisibleParameterAnnotationsAttribute)
     {
         // Create a new annotations attribute.
+        Annotation[][] parameterAnnotations =
+            new Annotation[runtimeVisibleParameterAnnotationsAttribute.u1parametersCount][];
+
+        Arrays.fill(parameterAnnotations, EMPTY_ANNOTATIONS);
+
         RuntimeVisibleParameterAnnotationsAttribute newParameterAnnotationsAttribute =
             new RuntimeVisibleParameterAnnotationsAttribute(constantAdder.addConstant(clazz, runtimeVisibleParameterAnnotationsAttribute.u2attributeNameIndex),
                                                             0,
-                                                            new int[runtimeVisibleParameterAnnotationsAttribute.u2parametersCount],
-                                                            new Annotation[runtimeVisibleParameterAnnotationsAttribute.u2parametersCount][]);
+                                                            new int[runtimeVisibleParameterAnnotationsAttribute.u1parametersCount],
+                                                            parameterAnnotations);
 
         // Add the annotations.
         runtimeVisibleParameterAnnotationsAttribute.annotationsAccept(clazz,
@@ -421,11 +459,16 @@ implements   AttributeVisitor
     public void visitRuntimeInvisibleParameterAnnotationsAttribute(Clazz clazz, Method method, RuntimeInvisibleParameterAnnotationsAttribute runtimeInvisibleParameterAnnotationsAttribute)
     {
         // Create a new annotations attribute.
+        Annotation[][] parameterAnnotations =
+            new Annotation[runtimeInvisibleParameterAnnotationsAttribute.u1parametersCount][];
+
+        Arrays.fill(parameterAnnotations, EMPTY_ANNOTATIONS);
+
         RuntimeInvisibleParameterAnnotationsAttribute newParameterAnnotationsAttribute =
             new RuntimeInvisibleParameterAnnotationsAttribute(constantAdder.addConstant(clazz, runtimeInvisibleParameterAnnotationsAttribute.u2attributeNameIndex),
                                                               0,
-                                                              new int[runtimeInvisibleParameterAnnotationsAttribute.u2parametersCount],
-                                                              new Annotation[runtimeInvisibleParameterAnnotationsAttribute.u2parametersCount][]);
+                                                              new int[runtimeInvisibleParameterAnnotationsAttribute.u1parametersCount],
+                                                              parameterAnnotations);
 
         // Add the annotations.
         runtimeInvisibleParameterAnnotationsAttribute.annotationsAccept(clazz,

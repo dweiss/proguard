@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -31,6 +31,7 @@ import java.util.List;
  */
 public class KeepSpecificationElement extends ClassSpecificationElement
 {
+    private boolean markDescriptorClasses;
     private boolean allowShrinking;
     private boolean allowOptimization;
     private boolean allowObfuscation;
@@ -39,9 +40,9 @@ public class KeepSpecificationElement extends ClassSpecificationElement
     /**
      * Adds the contents of this class specification element to the given list.
      * @param keepSpecifications the class specifications to be extended.
-     * @param markClasses         specifies whether to mark the classes.
-     * @param markConditionally   specifies whether to mark the classes
-     *                            and class members conditionally.
+     * @param markClasses        specifies whether to mark the classes.
+     * @param markConditionally  specifies whether to mark the classes
+     *                           and class members conditionally.
      */
     public void appendTo(List    keepSpecifications,
                          boolean markClasses,
@@ -50,16 +51,17 @@ public class KeepSpecificationElement extends ClassSpecificationElement
         // Get the referenced file set, or else this one.
         KeepSpecificationElement keepSpecificationElement = isReference() ?
             (KeepSpecificationElement)getCheckedRef(this.getClass(),
-                                                     this.getClass().getName()) :
+                                                    this.getClass().getName()) :
             this;
 
         KeepClassSpecification keepClassSpecification =
             new KeepClassSpecification(markClasses,
-                                  markConditionally,
-                                  allowShrinking,
-                                  allowOptimization,
-                                  allowObfuscation,
-                                  createClassSpecification(keepSpecificationElement));
+                                       markConditionally,
+                                       markDescriptorClasses,
+                                       allowShrinking,
+                                       allowOptimization,
+                                       allowObfuscation,
+                                       createClassSpecification(keepSpecificationElement));
 
         // Add it to the list.
         keepSpecifications.add(keepClassSpecification);
@@ -67,6 +69,12 @@ public class KeepSpecificationElement extends ClassSpecificationElement
 
 
     // Ant task attributes.
+
+    public void setIncludedescriptorclasses(boolean markDescriptorClasses)
+    {
+        this.markDescriptorClasses = markDescriptorClasses;
+    }
+
 
     public void setAllowshrinking(boolean allowShrinking)
     {
