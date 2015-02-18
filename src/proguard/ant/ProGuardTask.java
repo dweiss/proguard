@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,7 +25,7 @@ import proguard.*;
 import proguard.classfile.util.ClassUtil;
 
 import java.io.*;
-import java.util.ArrayList;
+import java.util.*;
 
 /**
  * This Task allows to configure and run ProGuard from Ant.
@@ -40,24 +40,29 @@ public class ProGuardTask extends ConfigurationTask
     {
         try
         {
-            ConfigurationParser parser = new ConfigurationParser(configurationFile);
+            // Get the combined system properties and Ant properties, for
+            // replacing ProGuard-style properties ('<...>').
+            Properties properties = new Properties();
+            properties.putAll(getProject().getProperties());
 
+            ConfigurationParser parser = new ConfigurationParser(configurationFile,
+                                                                 properties);
             try
             {
                 parser.parse(configuration);
             }
-            catch (ParseException ex)
+            catch (ParseException e)
             {
-                throw new BuildException(ex.getMessage());
+                throw new BuildException(e.getMessage(), e);
             }
             finally
             {
                 parser.close();
             }
         }
-        catch (IOException ex)
+        catch (IOException e)
         {
-            throw new BuildException(ex.getMessage());
+            throw new BuildException(e.getMessage(), e);
         }
     }
 
@@ -310,9 +315,9 @@ public class ProGuardTask extends ConfigurationTask
             ProGuard proGuard = new ProGuard(configuration);
             proGuard.execute();
         }
-        catch (IOException ex)
+        catch (IOException e)
         {
-            throw new BuildException(ex.getMessage());
+            throw new BuildException(e.getMessage(), e);
         }
     }
 
@@ -334,7 +339,7 @@ public class ProGuardTask extends ConfigurationTask
             fileName.equalsIgnoreCase("off")    ? null :
             fileName.equalsIgnoreCase("true")  ||
             fileName.equalsIgnoreCase("yes")   ||
-            fileName.equalsIgnoreCase("on")     ? new File("")   :
+            fileName.equalsIgnoreCase("on")     ? Configuration.STD_OUT :
                                                   resolvedFile(file);
     }
 

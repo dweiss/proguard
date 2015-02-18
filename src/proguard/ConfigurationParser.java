@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,7 @@
  */
 package proguard;
 
-import proguard.classfile.ClassConstants;
+import proguard.classfile.*;
 import proguard.classfile.util.ClassUtil;
 import proguard.util.ListUtil;
 
@@ -31,75 +31,101 @@ import java.util.*;
 
 /**
  * This class parses ProGuard configurations. Configurations can be read from an
- * array of arguments or from a configuration file or URL.
+ * array of arguments or from a configuration file or URL. External references
+ * in file names ('<...>') can be resolved against a given set of properties.
  *
  * @author Eric Lafortune
  */
 public class ConfigurationParser
 {
-    private WordReader reader;
+    private final WordReader reader;
+    private final Properties properties;
+
     private String     nextWord;
     private String     lastComments;
 
 
     /**
-     * Creates a new ConfigurationParser for the given String arguments.
+     * Creates a new ConfigurationParser for the given String arguments and
+     * the given Properties.
      */
-    public ConfigurationParser(String[] args) throws IOException
+    public ConfigurationParser(String[]   args,
+                               Properties properties) throws IOException
     {
-        this(args, null);
+        this(args, null, properties);
     }
 
 
     /**
      * Creates a new ConfigurationParser for the given String arguments,
-     * with the given base directory.
+     * with the given base directory and the given Properties.
      */
-    public ConfigurationParser(String[] args,
-                               File     baseDir) throws IOException
+    public ConfigurationParser(String[]   args,
+                               File       baseDir,
+                               Properties properties) throws IOException
     {
-        this(new ArgumentWordReader(args, baseDir));
+        this(new ArgumentWordReader(args, baseDir), properties);
     }
 
 
     /**
      * Creates a new ConfigurationParser for the given lines,
-     * with the given base directory.
+     * with the given base directory and the given Properties.
      */
-    public ConfigurationParser(String lines,
-                               String description,
-                               File   baseDir) throws IOException
+    public ConfigurationParser(String     lines,
+                               String     description,
+                               File       baseDir,
+                               Properties properties) throws IOException
     {
         this(new LineWordReader(new LineNumberReader(new StringReader(lines)),
                                 description,
-                                baseDir));
+                                baseDir),
+             properties);
     }
 
 
     /**
-     * Creates a new ConfigurationParser for the given file.
+     * Creates a new ConfigurationParser for the given file, with the system
+     * Properties.
+     * @deprecated Temporary code for backward compatibility in Obclipse.
      */
     public ConfigurationParser(File file) throws IOException
     {
-        this(new FileWordReader(file));
+        this(file, System.getProperties());
     }
 
 
     /**
-     * Creates a new ConfigurationParser for the given URL.
+     * Creates a new ConfigurationParser for the given file and the given
+     * Properties.
      */
-    public ConfigurationParser(URL url) throws IOException
+    public ConfigurationParser(File       file,
+                               Properties properties) throws IOException
     {
-        this(new FileWordReader(url));
+        this(new FileWordReader(file), properties);
     }
 
 
     /**
-     * Creates a new ConfigurationParser for the given word reader.
+     * Creates a new ConfigurationParser for the given URL and the given
+     * Properties.
      */
-    public ConfigurationParser(WordReader reader) throws IOException
+    public ConfigurationParser(URL        url,
+                               Properties properties) throws IOException
     {
-        this.reader = reader;
+        this(new FileWordReader(url), properties);
+    }
+
+
+    /**
+     * Creates a new ConfigurationParser for the given word reader and the
+     * given Properties.
+     */
+    public ConfigurationParser(WordReader reader,
+                               Properties properties) throws IOException
+    {
+        this.reader     = reader;
+        this.properties = properties;
 
         readNextWord();
     }
@@ -210,7 +236,7 @@ public class ConfigurationParser
 
     private long parseIncludeArgument(long lastModified) throws ParseException, IOException
     {
-        // Read the configuation file name.
+        // Read the configuration file name.
         readNextWord("configuration file name", true, false);
 
         File file = file(nextWord);
@@ -259,14 +285,14 @@ public class ConfigurationParser
                 ConfigurationConstants.OPEN_ARGUMENTS_KEYWORD.equals(nextWord))
             {
                 // Read all filters in an array.
-                List[] filters = new List[5];
+                List[] filters = new List[7];
 
                 int counter = 0;
                 do
                 {
                     // Read the filter.
                     filters[counter++] =
-                        parseCommaSeparatedList("filter", true, false, true, true, false, true, false, false, null);
+                        parseCommaSeparatedList("filter", true, true, true, true, false, true, false, false, null);
                 }
                 while (counter < filters.length &&
                        ConfigurationConstants.SEPARATOR_KEYWORD.equals(nextWord));
@@ -294,6 +320,18 @@ public class ConfigurationParser
                             if (counter > 0)
                             {
                                 entry.setZipFilter(filters[--counter]);
+                                if (counter > 0)
+                                {
+                                    // For backward compatibility, the apk
+                                    // filter comes second in the list.
+                                    entry.setApkFilter(filters[--counter]);
+                                    if (counter > 0)
+                                    {
+                                        // For backward compatibility, the aar
+                                        // filter comes first in the list.
+                                        entry.setAarFilter(filters[--counter]);
+                                    }
+                                }
                             }
                         }
                     }
@@ -384,7 +422,7 @@ public class ConfigurationParser
         // Didn't the user specify a file name?
         if (configurationEnd())
         {
-            return new File("");
+            return Configuration.STD_OUT;
         }
 
         // Make sure the file is properly resolved.
@@ -443,16 +481,17 @@ public class ConfigurationParser
             keepClassSpecifications = new ArrayList();
         }
 
-        //boolean allowShrinking    = false;
-        boolean allowOptimization = false;
-        boolean allowObfuscation  = false;
+        boolean markDescriptorClasses = false;
+        //boolean allowShrinking        = false;
+        boolean allowOptimization     = false;
+        boolean allowObfuscation      = false;
 
         // Read the keep modifiers.
         while (true)
         {
             readNextWord("keyword '" + ConfigurationConstants.CLASS_KEYWORD +
-                         "', '"      + ClassConstants.EXTERNAL_ACC_INTERFACE +
-                         "', or '"   + ClassConstants.EXTERNAL_ACC_ENUM + "'",
+                         "', '"      + JavaConstants.ACC_INTERFACE +
+                         "', or '"   + JavaConstants.ACC_ENUM + "'",
                          false, true);
 
             if (!ConfigurationConstants.ARGUMENT_SEPARATOR_KEYWORD.equals(nextWord))
@@ -465,21 +504,26 @@ public class ConfigurationParser
                          "', '"      + ConfigurationConstants.ALLOW_OPTIMIZATION_SUBOPTION +
                          "', or '"   + ConfigurationConstants.ALLOW_OBFUSCATION_SUBOPTION + "'");
 
-            if      (ConfigurationConstants.ALLOW_SHRINKING_SUBOPTION   .startsWith(nextWord))
+            if      (ConfigurationConstants.INCLUDE_DESCRIPTOR_CLASSES_SUBOPTION.startsWith(nextWord))
             {
-                allowShrinking    = true;
+                markDescriptorClasses = true;
             }
-            else if (ConfigurationConstants.ALLOW_OPTIMIZATION_SUBOPTION.startsWith(nextWord))
+            else if (ConfigurationConstants.ALLOW_SHRINKING_SUBOPTION           .startsWith(nextWord))
             {
-                allowOptimization = true;
+                allowShrinking        = true;
             }
-            else if (ConfigurationConstants.ALLOW_OBFUSCATION_SUBOPTION .startsWith(nextWord))
+            else if (ConfigurationConstants.ALLOW_OPTIMIZATION_SUBOPTION        .startsWith(nextWord))
             {
-                allowObfuscation  = true;
+                allowOptimization     = true;
+            }
+            else if (ConfigurationConstants.ALLOW_OBFUSCATION_SUBOPTION         .startsWith(nextWord))
+            {
+                allowObfuscation      = true;
             }
             else
             {
-                throw new ParseException("Expecting keyword '" + ConfigurationConstants.ALLOW_SHRINKING_SUBOPTION +
+                throw new ParseException("Expecting keyword '" + ConfigurationConstants.INCLUDE_DESCRIPTOR_CLASSES_SUBOPTION +
+                                         "', '"                + ConfigurationConstants.ALLOW_SHRINKING_SUBOPTION +
                                          "', '"                + ConfigurationConstants.ALLOW_OPTIMIZATION_SUBOPTION +
                                          "', or '"             + ConfigurationConstants.ALLOW_OBFUSCATION_SUBOPTION +
                                          "' before " + reader.locationDescription());
@@ -493,6 +537,7 @@ public class ConfigurationParser
         // Create and add the keep configuration.
         keepClassSpecifications.add(new KeepClassSpecification(markClasses,
                                                                markConditionally,
+                                                               markDescriptorClasses,
                                                                allowShrinking,
                                                                allowOptimization,
                                                                allowObfuscation,
@@ -512,8 +557,8 @@ public class ConfigurationParser
 
         // Read and add the class configuration.
         readNextWord("keyword '" + ConfigurationConstants.CLASS_KEYWORD +
-                     "', '"      + ClassConstants.EXTERNAL_ACC_INTERFACE +
-                     "', or '"   + ClassConstants.EXTERNAL_ACC_ENUM + "'",
+                     "', '"      + JavaConstants.ACC_INTERFACE +
+                     "', or '"   + JavaConstants.ACC_ENUM + "'",
                      false, true);
 
         classSpecifications.add(parseClassSpecificationArguments());
@@ -522,7 +567,13 @@ public class ConfigurationParser
     }
 
 
-    private ClassSpecification parseClassSpecificationArguments()
+    /**
+     * Parses and returns a class specification.
+     * @throws ParseException if the class specification contains a syntax error.
+     * @throws IOException    if an IO error occurs while reading the class
+     *                        specification.
+     */
+    public ClassSpecification parseClassSpecificationArguments()
     throws ParseException, IOException
     {
         // Clear the annotation type.
@@ -545,25 +596,25 @@ public class ConfigurationParser
 
             // Parse the class access modifiers.
             int accessFlag =
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_PUBLIC)     ? ClassConstants.INTERNAL_ACC_PUBLIC      :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_FINAL)      ? ClassConstants.INTERNAL_ACC_FINAL       :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_INTERFACE)  ? ClassConstants.INTERNAL_ACC_INTERFACE   :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_ABSTRACT)   ? ClassConstants.INTERNAL_ACC_ABSTRACT    :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_SYNTHETIC)  ? ClassConstants.INTERNAL_ACC_SYNTHETIC   :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_ANNOTATION) ? ClassConstants.INTERNAL_ACC_ANNOTATTION :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_ENUM)       ? ClassConstants.INTERNAL_ACC_ENUM        :
-                                                                              unknownAccessFlag();
+                strippedWord.equals(JavaConstants.ACC_PUBLIC)     ? ClassConstants.ACC_PUBLIC      :
+                strippedWord.equals(JavaConstants.ACC_FINAL)      ? ClassConstants.ACC_FINAL       :
+                strippedWord.equals(JavaConstants.ACC_INTERFACE)  ? ClassConstants.ACC_INTERFACE   :
+                strippedWord.equals(JavaConstants.ACC_ABSTRACT)   ? ClassConstants.ACC_ABSTRACT    :
+                strippedWord.equals(JavaConstants.ACC_SYNTHETIC)  ? ClassConstants.ACC_SYNTHETIC   :
+                strippedWord.equals(JavaConstants.ACC_ANNOTATION) ? ClassConstants.ACC_ANNOTATTION :
+                strippedWord.equals(JavaConstants.ACC_ENUM)       ? ClassConstants.ACC_ENUM        :
+                                                                    unknownAccessFlag();
 
             // Is it an annotation modifier?
-            if (accessFlag == ClassConstants.INTERNAL_ACC_ANNOTATTION)
+            if (accessFlag == ClassConstants.ACC_ANNOTATTION)
             {
                 // Already read the next word.
-                readNextWord("annotation type or keyword '" + ClassConstants.EXTERNAL_ACC_INTERFACE + "'",
+                readNextWord("annotation type or keyword '" + JavaConstants.ACC_INTERFACE + "'",
                              false, false);
 
                 // Is the next word actually an annotation type?
-                if (!nextWord.equals(ClassConstants.EXTERNAL_ACC_INTERFACE) &&
-                    !nextWord.equals(ClassConstants.EXTERNAL_ACC_ENUM)      &&
+                if (!nextWord.equals(JavaConstants.ACC_INTERFACE) &&
+                    !nextWord.equals(JavaConstants.ACC_ENUM)      &&
                     !nextWord.equals(ConfigurationConstants.CLASS_KEYWORD))
                 {
                     // Parse the annotation type.
@@ -596,8 +647,8 @@ public class ConfigurationParser
                                          "' before " + reader.locationDescription());
             }
 
-            if (strippedWord.equals(ClassConstants.EXTERNAL_ACC_INTERFACE) ||
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_ENUM)      ||
+            if (strippedWord.equals(JavaConstants.ACC_INTERFACE) ||
+                strippedWord.equals(JavaConstants.ACC_ENUM)      ||
                 strippedWord.equals(ConfigurationConstants.CLASS_KEYWORD))
             {
                 // The interface or enum keyword. Stop parsing the class flags.
@@ -605,11 +656,11 @@ public class ConfigurationParser
             }
 
             // Should we read the next word?
-            if (accessFlag != ClassConstants.INTERNAL_ACC_ANNOTATTION)
+            if (accessFlag != ClassConstants.ACC_ANNOTATTION)
             {
                 readNextWord("keyword '" + ConfigurationConstants.CLASS_KEYWORD +
-                             "', '"      + ClassConstants.EXTERNAL_ACC_INTERFACE +
-                             "', or '"   + ClassConstants.EXTERNAL_ACC_ENUM + "'",
+                             "', '"      + JavaConstants.ACC_INTERFACE +
+                             "', or '"   + JavaConstants.ACC_ENUM + "'",
                              false, true);
             }
         }
@@ -732,21 +783,21 @@ public class ConfigurationParser
 
             // Parse the class member access modifiers.
             int accessFlag =
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_PUBLIC)       ? ClassConstants.INTERNAL_ACC_PUBLIC       :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_PRIVATE)      ? ClassConstants.INTERNAL_ACC_PRIVATE      :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_PROTECTED)    ? ClassConstants.INTERNAL_ACC_PROTECTED    :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_STATIC)       ? ClassConstants.INTERNAL_ACC_STATIC       :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_FINAL)        ? ClassConstants.INTERNAL_ACC_FINAL        :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_SYNCHRONIZED) ? ClassConstants.INTERNAL_ACC_SYNCHRONIZED :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_VOLATILE)     ? ClassConstants.INTERNAL_ACC_VOLATILE     :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_TRANSIENT)    ? ClassConstants.INTERNAL_ACC_TRANSIENT    :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_BRIDGE)       ? ClassConstants.INTERNAL_ACC_BRIDGE       :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_VARARGS)      ? ClassConstants.INTERNAL_ACC_VARARGS      :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_NATIVE)       ? ClassConstants.INTERNAL_ACC_NATIVE       :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_ABSTRACT)     ? ClassConstants.INTERNAL_ACC_ABSTRACT     :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_STRICT)       ? ClassConstants.INTERNAL_ACC_STRICT       :
-                strippedWord.equals(ClassConstants.EXTERNAL_ACC_SYNTHETIC)    ? ClassConstants.INTERNAL_ACC_SYNTHETIC    :
-                                                                                0;
+                strippedWord.equals(JavaConstants.ACC_PUBLIC)       ? ClassConstants.ACC_PUBLIC       :
+                strippedWord.equals(JavaConstants.ACC_PRIVATE)      ? ClassConstants.ACC_PRIVATE      :
+                strippedWord.equals(JavaConstants.ACC_PROTECTED)    ? ClassConstants.ACC_PROTECTED    :
+                strippedWord.equals(JavaConstants.ACC_STATIC)       ? ClassConstants.ACC_STATIC       :
+                strippedWord.equals(JavaConstants.ACC_FINAL)        ? ClassConstants.ACC_FINAL        :
+                strippedWord.equals(JavaConstants.ACC_SYNCHRONIZED) ? ClassConstants.ACC_SYNCHRONIZED :
+                strippedWord.equals(JavaConstants.ACC_VOLATILE)     ? ClassConstants.ACC_VOLATILE     :
+                strippedWord.equals(JavaConstants.ACC_TRANSIENT)    ? ClassConstants.ACC_TRANSIENT    :
+                strippedWord.equals(JavaConstants.ACC_BRIDGE)       ? ClassConstants.ACC_BRIDGE       :
+                strippedWord.equals(JavaConstants.ACC_VARARGS)      ? ClassConstants.ACC_VARARGS      :
+                strippedWord.equals(JavaConstants.ACC_NATIVE)       ? ClassConstants.ACC_NATIVE       :
+                strippedWord.equals(JavaConstants.ACC_ABSTRACT)     ? ClassConstants.ACC_ABSTRACT     :
+                strippedWord.equals(JavaConstants.ACC_STRICT)       ? ClassConstants.ACC_STRICT       :
+                strippedWord.equals(JavaConstants.ACC_SYNTHETIC)    ? ClassConstants.ACC_SYNTHETIC    :
+                                                                      0;
             if (accessFlag == 0)
             {
                 // Not a class member access modifier. Stop parsing them.
@@ -850,7 +901,7 @@ public class ConfigurationParser
             {
                 // This must be a constructor then.
                 // Make sure the type is a proper constructor name.
-                if (!(type.equals(ClassConstants.INTERNAL_METHOD_NAME_INIT) ||
+                if (!(type.equals(ClassConstants.METHOD_NAME_INIT) ||
                       type.equals(externalClassName) ||
                       type.equals(ClassUtil.externalShortClassName(externalClassName))))
                 {
@@ -860,8 +911,8 @@ public class ConfigurationParser
                 }
 
                 // Assign the fixed constructor type and name.
-                type = ClassConstants.EXTERNAL_TYPE_VOID;
-                name = ClassConstants.INTERNAL_METHOD_NAME_INIT;
+                type = JavaConstants.TYPE_VOID;
+                name = ClassConstants.METHOD_NAME_INIT;
             }
             else
             {
@@ -940,9 +991,24 @@ public class ConfigurationParser
 
 
     /**
-     * Reads a comma-separated list of java identifiers or of file names. If an
-     * empty list is allowed, the reading will end after a closing parenthesis
-     * or semi-colon.
+     * Reads a comma-separated list of java identifiers or of file names.
+     * Examples of invocation arguments:
+     *   ("directory name", true,  true,  false, true,  false, true,  false, false, ...)
+     *   ("optimization",   true,  false, false, false, false, false, false, false, ...)
+     *   ("package name",   true,  true,  false, false, true,  false, true,  false, ...)
+     *   ("attribute name", true,  true,  false, false, true,  false, false, false, ...)
+     *   ("class name",     true,  true,  false, false, true,  false, true,  false, ...)
+     *   ("resource file",  true,  true,  false, true,  false, false, false, false, ...)
+     *   ("resource file",  true,  true,  false, true,  false, false, false, false, ...)
+     *   ("class name",     true,  true,  false, false, true,  false, true,  false, ...)
+     *   ("class name",     true,  true,  false, false, true,  false, true,  false, ...)
+     *   ("filter",         true,  true,  true,  true,  false, true,  false, false, ...)
+     *   ("annotation ",    false, false, false, false, true,  false, false, true,  ...)
+     *   ("class name ",    true,  false, false, false, true,  false, false, false, ...)
+     *   ("annotation ",    true,  false, false, false, true,  false, false, true,  ...)
+     *   ("class name ",    false, false, false, false, true,  false, false, false, ...)
+     *   ("annotation ",    true,  false, false, false, true,  false, false, true,  ...)
+     *   ("argument",       true,  true,  true,  false, true,  false, false, false, ...)
      */
     private List parseCommaSeparatedList(String  expectedDescription,
                                          boolean readFirstWord,
@@ -963,10 +1029,30 @@ public class ConfigurationParser
 
         if (readFirstWord)
         {
-            if (expectClosingParenthesis || !allowEmptyList)
+            if (!allowEmptyList)
             {
                 // Read the first list entry.
                 readNextWord(expectedDescription, isFileName, false);
+            }
+            else if (expectClosingParenthesis)
+            {
+                // Read the first list entry.
+                readNextWord(expectedDescription, isFileName, false);
+
+                // Return if the entry is actually empty (an empty file name or
+                // a closing parenthesis).
+                if (nextWord.length() == 0)
+                {
+                    // Read the closing parenthesis
+                    readNextWord("closing '" + ConfigurationConstants.CLOSE_ARGUMENTS_KEYWORD +
+                                 "'");
+
+                    return list;
+                }
+                else if (nextWord.equals(ConfigurationConstants.CLOSE_ARGUMENTS_KEYWORD))
+                {
+                    return list;
+                }
             }
             else
             {
@@ -974,8 +1060,7 @@ public class ConfigurationParser
                 readNextWord(isFileName);
 
                 // Check if the list is empty.
-                if (configurationEnd() ||
-                    nextWord.equals(ConfigurationConstants.ANY_ATTRIBUTE_KEYWORD))
+                if (configurationEnd())
                 {
                     return list;
                 }
@@ -984,14 +1069,6 @@ public class ConfigurationParser
 
         while (true)
         {
-            if (expectClosingParenthesis &&
-                list.size() == 0         &&
-                (ConfigurationConstants.CLOSE_ARGUMENTS_KEYWORD.equals(nextWord) ||
-                 ConfigurationConstants.SEPARATOR_KEYWORD.equals(nextWord)))
-            {
-                break;
-            }
-
             if (checkJavaIdentifiers)
             {
                 checkJavaIdentifier("java type");
@@ -1029,14 +1106,12 @@ public class ConfigurationParser
 
             if (!ConfigurationConstants.ARGUMENT_SEPARATOR_KEYWORD.equals(nextWord))
             {
-                break;
+                return list;
             }
 
             // Read the next list entry.
             readNextWord(expectedDescription, isFileName, false);
         }
-
-        return list;
     }
 
 
@@ -1068,8 +1143,8 @@ public class ConfigurationParser
 
 
     /**
-     * Replaces any system properties in the given word by their values
-     * (e.g. the substring "<java.home>" is replaced by its value).
+     * Replaces any properties in the given word by their values.
+     * For instance, the substring "<java.home>" is replaced by its value.
      */
     private String replaceSystemProperties(String word) throws ParseException
     {
@@ -1085,22 +1160,20 @@ public class ConfigurationParser
             int toIndex = word.indexOf(ConfigurationConstants.CLOSE_SYSTEM_PROPERTY, fromIndex+1);
             if (toIndex < 0)
             {
-                throw new ParseException("Expecting closing '" + ConfigurationConstants.CLOSE_SYSTEM_PROPERTY +
-                                         "' after opening '" + ConfigurationConstants.OPEN_SYSTEM_PROPERTY +
-                                         "' in " + reader.locationDescription());
+                break;
             }
 
             String propertyName  = word.substring(fromIndex+1, toIndex);
-            String propertyValue = System.getProperty(propertyName);
+            String propertyValue = properties.getProperty(propertyName);
             if (propertyValue == null)
             {
                 throw new ParseException("Value of system property '" + propertyName +
                                          "' is undefined in " + reader.locationDescription());
             }
 
-            word = word.substring(0, fromIndex) +
-                       propertyValue +
-                       word.substring(toIndex+1);
+            word = word.substring(0, fromIndex) + propertyValue + word.substring(toIndex+1);
+
+            fromIndex += propertyValue.length();
         }
 
         return word;
@@ -1196,6 +1269,11 @@ public class ConfigurationParser
      */
     private boolean isJavaIdentifier(String aWord)
     {
+        if (aWord.length() == 0)
+        {
+            return false;
+        }
+
         for (int index = 0; index < aWord.length(); index++)
         {
             char c = aWord.charAt(index);
@@ -1229,7 +1307,7 @@ public class ConfigurationParser
     {
         if (((requiredSetMemberAccessFlags |
               requiredUnsetMemberAccessFlags) &
-            ~ClassConstants.VALID_INTERNAL_ACC_FIELD) != 0)
+            ~ClassConstants.VALID_ACC_FIELD) != 0)
         {
             throw new ParseException("Invalid method access modifier for field before " +
                                      reader.locationDescription());
@@ -1247,7 +1325,7 @@ public class ConfigurationParser
     {
         if (((requiredSetMemberAccessFlags |
               requiredUnsetMemberAccessFlags) &
-            ~ClassConstants.VALID_INTERNAL_ACC_METHOD) != 0)
+            ~ClassConstants.VALID_ACC_METHOD) != 0)
         {
             throw new ParseException("Invalid field access modifier for method before " +
                                      reader.locationDescription());
@@ -1262,7 +1340,8 @@ public class ConfigurationParser
     {
         try
         {
-            ConfigurationParser parser = new ConfigurationParser(args);
+            ConfigurationParser parser =
+                new ConfigurationParser(args, System.getProperties());
 
             try
             {

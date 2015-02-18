@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -72,7 +72,7 @@ implements   MemberVisitor
             // Make the field private.
             programField.u2accessFlags =
                 AccessUtil.replaceAccessFlags(programField.u2accessFlags,
-                                              ClassConstants.INTERNAL_ACC_PRIVATE);
+                                              ClassConstants.ACC_PRIVATE);
 
             // Visit the field, if required.
             if (extraMemberVisitor != null)
@@ -88,10 +88,10 @@ implements   MemberVisitor
         // Is the method unmarked?
         if (NonPrivateMemberMarker.canBeMadePrivate(programMethod))
         {
-            // Make the method private.
+            // Make the method private and no longer final.
             programMethod.u2accessFlags =
                 AccessUtil.replaceAccessFlags(programMethod.u2accessFlags,
-                                              ClassConstants.INTERNAL_ACC_PRIVATE);
+                                              ClassConstants.ACC_PRIVATE);
 
             // Visit the method, if required.
             if (extraMemberVisitor != null)

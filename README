@@ -15,7 +15,7 @@ The best place to start is docs/index.html
 
 
 Example
-=======
+-------
 
 If you want to give ProGuard a spin right away, try processing the ProGuard
 jar itself:
@@ -30,4 +30,4 @@ Enjoy!
 
 http://proguard.sourceforge.net/
 
-Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare

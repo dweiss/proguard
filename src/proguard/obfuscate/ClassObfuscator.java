@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -109,14 +109,14 @@ implements   ClassVisitor,
         if (flattenPackageHierarchy != null &&
             flattenPackageHierarchy.length() > 0)
         {
-            flattenPackageHierarchy += ClassConstants.INTERNAL_PACKAGE_SEPARATOR;
+            flattenPackageHierarchy += ClassConstants.PACKAGE_SEPARATOR;
         }
 
         // First append the package separator if necessary.
         if (repackageClasses != null &&
             repackageClasses.length() > 0)
         {
-            repackageClasses += ClassConstants.INTERNAL_PACKAGE_SEPARATOR;
+            repackageClasses += ClassConstants.PACKAGE_SEPARATOR;
         }
 
         this.useMixedCaseClassNames  = useMixedCaseClassNames;
@@ -151,7 +151,7 @@ implements   ClassVisitor,
             // the an outer class prefix, if any, or it may be the fixed base
             // package, if classes are to be repackaged.
             String newPackagePrefix = newClassName != null ?
-                newClassName + ClassConstants.INTERNAL_INNER_CLASS_SEPARATOR :
+                newClassName + ClassConstants.INNER_CLASS_SEPARATOR :
                 newPackagePrefix(ClassUtil.internalPackagePrefix(programClass.getName()));
 
             // Come up with a new class name, numeric or ordinary.
@@ -161,6 +161,14 @@ implements   ClassVisitor,
 
             setNewClassName(programClass, newClassName);
         }
+    }
+
+
+    public void visitLibraryClass(LibraryClass libraryClass)
+    {
+        // This can happen for dubious input, if the outer class of a program
+        // class is a library class, and its name is requested.
+        newClassName = libraryClass.getName();
     }
 
 
@@ -402,7 +410,7 @@ implements   ClassVisitor,
             // Let the factory produce a package name.
             newPackagePrefix = newSuperPackagePrefix +
                                packageNameFactory.nextName() +
-                               ClassConstants.INTERNAL_PACKAGE_SEPARATOR;
+                               ClassConstants.PACKAGE_SEPARATOR;
         }
         while (packagePrefixMap.containsValue(newPackagePrefix));
 

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,14 +21,14 @@
 package proguard.optimize.peephole;
 
 import proguard.classfile.*;
-import proguard.classfile.editor.*;
 import proguard.classfile.attribute.*;
 import proguard.classfile.attribute.annotation.*;
 import proguard.classfile.attribute.annotation.visitor.*;
 import proguard.classfile.attribute.visitor.*;
 import proguard.classfile.constant.*;
 import proguard.classfile.constant.visitor.ConstantVisitor;
-import proguard.classfile.util.*;
+import proguard.classfile.editor.*;
+import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.*;
 
 /**
@@ -58,6 +58,9 @@ implements   ClassVisitor,
 
     public void visitProgramClass(ProgramClass programClass)
     {
+        // We're only making changes locally in the class.
+        // Not all other classes may have been retargeted yet.
+
         // Change the references of the constant pool.
         programClass.constantPoolEntriesAccept(this);
 
@@ -68,10 +71,41 @@ implements   ClassVisitor,
         // Change the references of the attributes.
         programClass.attributesAccept(this);
 
-        // Is the class itself being retargeted?
+        // Remove duplicate interfaces and interface classes that have ended
+        // up pointing to the class itself.
+        boolean[] delete = null;
+        for (int index = 0; index < programClass.u2interfacesCount; index++)
+        {
+            Clazz interfaceClass = programClass.getInterface(index);
+            if (interfaceClass != null &&
+                (programClass.equals(interfaceClass) ||
+                 containsInterfaceClass(programClass,
+                                        index,
+                                        interfaceClass)))
+            {
+                // Lazily create the array.
+                if (delete == null)
+                {
+                    delete = new boolean[programClass.u2interfacesCount];
+                }
+
+                delete[index] = true;
+            }
+        }
+
+        if (delete != null)
+        {
+            new InterfaceDeleter(delete).visitProgramClass(programClass);
+        }
+
+        // Is the class being retargeted?
         Clazz targetClass = ClassMerger.getTargetClass(programClass);
         if (targetClass != null)
         {
+            // We're not changing anything special in the superclass and
+            // interface hierarchy of the retargeted class. The shrinking
+            // step will remove the class for us.
+
             // Restore the class name. We have to add a new class entry
             // to avoid an existing entry with the same name being reused. The
             // names have to be fixed later, based on their referenced classes.
@@ -80,29 +114,14 @@ implements   ClassVisitor,
                                     programClass.getName(),
                                     programClass);
 
-            // This class will loose all its interfaces.
-            programClass.u2interfacesCount = 0;
-
-            // This class will loose all its subclasses.
+            // This class will no longer have any subclasses, because their
+            // subclasses and interfaces will be retargeted.
             programClass.subClasses = null;
         }
         else
         {
-            // Remove interface classes that are pointing to this class.
-            int newInterfacesCount = 0;
-            for (int index = 0; index < programClass.u2interfacesCount; index++)
-            {
-                Clazz interfaceClass = programClass.getInterface(index);
-                if (!programClass.equals(interfaceClass))
-                {
-                    programClass.u2interfaces[newInterfacesCount++] =
-                        programClass.u2interfaces[index];
-                }
-            }
-            programClass.u2interfacesCount = newInterfacesCount;
-
-            // Update the subclasses of the superclass and interfaces of the
-            // target class.
+            // This class has become the subclass of its possibly new
+            // superclass and of any new interfaces.
             ConstantVisitor subclassAdder =
                 new ReferencedClassVisitor(
                 new SubclassFilter(programClass,
@@ -184,6 +203,13 @@ implements   ClassVisitor,
                                        null,
                                        newReferencedClass);
         }
+    }
+
+
+    public void visitInvokeDynamicConstant(Clazz clazz, InvokeDynamicConstant invokeDynamicConstant)
+    {
+        // Change the referenced classes.
+        updateReferencedClasses(invokeDynamicConstant.referencedClasses);
     }
 
 
@@ -279,8 +305,7 @@ implements   ClassVisitor,
     }
 
 
-
-   // Implementations for LocalVariableInfoVisitor.
+    // Implementations for LocalVariableInfoVisitor.
 
     public void visitLocalVariableInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableInfo localVariableInfo)
     {
@@ -289,6 +314,7 @@ implements   ClassVisitor,
             updateReferencedClass(localVariableInfo.referencedClass);
     }
 
+
     // Implementations for LocalVariableTypeInfoVisitor.
 
     public void visitLocalVariableTypeInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableTypeInfo localVariableTypeInfo)
@@ -296,6 +322,7 @@ implements   ClassVisitor,
         // Change the referenced classes.
         updateReferencedClasses(localVariableTypeInfo.referencedClasses);
     }
+
 
     // Implementations for AnnotationVisitor.
 
@@ -379,7 +406,27 @@ implements   ClassVisitor,
 
     // Small utility methods.
 
-    /**
+     /**
+     * Returns whether the given class contains the given interface
+     * class in its first given number of interfaces.
+     */
+    private boolean containsInterfaceClass(Clazz clazz,
+                                           int   interfaceCount,
+                                           Clazz interfaceClass)
+    {
+        for (int index = 0; index < interfaceCount; index++)
+        {
+            if (interfaceClass.equals(clazz.getInterface(index)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+   /**
      * Updates the retargeted classes in the given array of classes.
      */
     private void updateReferencedClasses(Clazz[] referencedClasses)

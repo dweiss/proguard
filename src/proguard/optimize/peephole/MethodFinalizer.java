@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,7 @@ package proguard.optimize.peephole;
 
 import proguard.classfile.*;
 import proguard.classfile.util.*;
-import proguard.classfile.visitor.*;
+import proguard.classfile.visitor.MemberVisitor;
 import proguard.optimize.KeepMarker;
 
 /**
@@ -61,7 +61,7 @@ implements   MemberVisitor
 
 
     // Implementations for MemberVisitor.
-    
+
     public void visitProgramMethod(ProgramClass programClass, ProgramMethod programMethod)
     {
         String name = programMethod.getName(programClass);
@@ -71,17 +71,17 @@ implements   MemberVisitor
         // and its class is final,
         //     or it is not being kept and it is not overridden,
         // then make it final.
-        if ((programMethod.u2accessFlags & (ClassConstants.INTERNAL_ACC_PRIVATE |
-                                            ClassConstants.INTERNAL_ACC_STATIC  |
-                                            ClassConstants.INTERNAL_ACC_FINAL   |
-                                            ClassConstants.INTERNAL_ACC_ABSTRACT)) == 0 &&
-            !name.equals(ClassConstants.INTERNAL_METHOD_NAME_INIT)                      &&
-            ((programClass.u2accessFlags & ClassConstants.INTERNAL_ACC_FINAL) != 0 ||
+        if ((programMethod.u2accessFlags & (ClassConstants.ACC_PRIVATE |
+                                            ClassConstants.ACC_STATIC  |
+                                            ClassConstants.ACC_FINAL   |
+                                            ClassConstants.ACC_ABSTRACT)) == 0 &&
+            !name.equals(ClassConstants.METHOD_NAME_INIT)                      &&
+            ((programClass.u2accessFlags & ClassConstants.ACC_FINAL) != 0 ||
              (!KeepMarker.isKept(programMethod) &&
               (programClass.subClasses == null ||
                !memberFinder.isOverriden(programClass, programMethod)))))
         {
-            programMethod.u2accessFlags |= ClassConstants.INTERNAL_ACC_FINAL;
+            programMethod.u2accessFlags |= ClassConstants.ACC_FINAL;
 
             // Visit the method, if required.
             if (extraMemberVisitor != null)

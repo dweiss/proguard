@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -41,8 +41,9 @@ implements   ClassPoolVisitor,
              MemberVisitor,
              AttributeVisitor
 {
-    // A reusable object for checking whether instructions have side effects.
-    private final SideEffectInstructionChecker sideEffectInstructionChecker = new SideEffectInstructionChecker(false);
+    // Reusable objects for checking whether instructions have side effects.
+    private final SideEffectInstructionChecker sideEffectInstructionChecker            = new SideEffectInstructionChecker(false, true);
+    private final SideEffectInstructionChecker initializerSideEffectInstructionChecker = new SideEffectInstructionChecker(false, false);
 
     // Parameters and values for visitor methods.
     private int     newSideEffectCount;
@@ -85,8 +86,8 @@ implements   ClassPoolVisitor,
             // Initialize the return value.
             hasSideEffects =
                 (programMethod.getAccessFlags() &
-                 (ClassConstants.INTERNAL_ACC_NATIVE |
-                  ClassConstants.INTERNAL_ACC_SYNCHRONIZED)) != 0;
+                 (ClassConstants.ACC_NATIVE |
+                  ClassConstants.ACC_SYNCHRONIZED)) != 0;
 
             // Look further if the method hasn't been marked yet.
             if (!hasSideEffects)
@@ -130,6 +131,11 @@ implements   ClassPoolVisitor,
         byte[] code   = codeAttribute.code;
         int    length = codeAttribute.u4codeLength;
 
+        SideEffectInstructionChecker checker =
+            method.getName(clazz).equals(ClassConstants.METHOD_NAME_CLINIT) ?
+                initializerSideEffectInstructionChecker :
+                sideEffectInstructionChecker;
+
         // Go over all instructions.
         int offset = 0;
         do
@@ -138,11 +144,11 @@ implements   ClassPoolVisitor,
             Instruction instruction = InstructionFactory.create(code, offset);
 
             // Check if it may be throwing exceptions.
-            if (sideEffectInstructionChecker.hasSideEffects(clazz,
-                                                            method,
-                                                            codeAttribute,
-                                                            offset,
-                                                            instruction))
+            if (checker.hasSideEffects(clazz,
+                                       method,
+                                       codeAttribute,
+                                       offset,
+                                       instruction))
             {
                 return true;
             }

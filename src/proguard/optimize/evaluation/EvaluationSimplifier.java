@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -27,10 +27,12 @@ import proguard.classfile.editor.*;
 import proguard.classfile.instruction.*;
 import proguard.classfile.instruction.visitor.InstructionVisitor;
 import proguard.classfile.util.*;
-import proguard.classfile.visitor.*;
-import proguard.evaluation.*;
+import proguard.classfile.visitor.ClassPrinter;
+import proguard.evaluation.TracedVariables;
 import proguard.evaluation.value.*;
-import proguard.optimize.info.*;
+import proguard.optimize.info.SideEffectInstructionChecker;
+
+import java.util.Arrays;
 
 /**
  * This AttributeVisitor simplifies the code attributes that it visits, based
@@ -43,20 +45,20 @@ extends      SimplifiedVisitor
 implements   AttributeVisitor,
              InstructionVisitor
 {
-    private static int  POS_ZERO_FLOAT_BITS  = Float.floatToIntBits(0.0f);
-    private static long POS_ZERO_DOUBLE_BITS = Double.doubleToLongBits(0.0);
+    private static final int  POS_ZERO_FLOAT_BITS  = Float.floatToIntBits(0.0f);
+    private static final long POS_ZERO_DOUBLE_BITS = Double.doubleToLongBits(0.0);
 
     //*
     private static final boolean DEBUG = false;
     /*/
-    private static boolean DEBUG       = true;
+    private static       boolean DEBUG = System.getProperty("es") != null;
     //*/
 
     private final InstructionVisitor extraInstructionVisitor;
 
     private final PartialEvaluator             partialEvaluator;
-    private final SideEffectInstructionChecker sideEffectInstructionChecker = new SideEffectInstructionChecker(true);
-    private final CodeAttributeEditor          codeAttributeEditor          = new CodeAttributeEditor(false);
+    private final SideEffectInstructionChecker sideEffectInstructionChecker = new SideEffectInstructionChecker(true, true);
+    private final CodeAttributeEditor          codeAttributeEditor          = new CodeAttributeEditor(false, true);
 
 
     /**
@@ -125,11 +127,7 @@ implements   AttributeVisitor,
         if (DEBUG)
         {
             System.out.println();
-            System.out.println("Class "+ClassUtil.externalClassName(clazz.getName()));
-            System.out.println("Method "+ClassUtil.externalFullMethodDescription(clazz.getName(),
-                                                                                 0,
-                                                                                 method.getName(clazz),
-                                                                                 method.getDescriptor(clazz)));
+            System.out.println("EvaluationSimplifier ["+clazz.getName()+"."+method.getName(clazz)+method.getDescriptor(clazz)+"]");
         }
 
         // Evaluate the method.
@@ -185,7 +183,15 @@ implements   AttributeVisitor,
             case InstructionConstants.OP_I2B:
             case InstructionConstants.OP_I2C:
             case InstructionConstants.OP_I2S:
-                replaceIntegerPushInstruction(clazz, offset, simpleInstruction);
+            case InstructionConstants.OP_ARRAYLENGTH:
+                if (!sideEffectInstructionChecker.hasSideEffects(clazz,
+                                                                 method,
+                                                                 codeAttribute,
+                                                                 offset,
+                                                                 simpleInstruction))
+                {
+                    replaceIntegerPushInstruction(clazz, offset, simpleInstruction);
+                }
                 break;
 
             case InstructionConstants.OP_LALOAD:
@@ -204,7 +210,14 @@ implements   AttributeVisitor,
             case InstructionConstants.OP_I2L:
             case InstructionConstants.OP_F2L:
             case InstructionConstants.OP_D2L:
-                replaceLongPushInstruction(clazz, offset, simpleInstruction);
+                if (!sideEffectInstructionChecker.hasSideEffects(clazz,
+                                                                 method,
+                                                                 codeAttribute,
+                                                                 offset,
+                                                                 simpleInstruction))
+                {
+                    replaceLongPushInstruction(clazz, offset, simpleInstruction);
+                }
                 break;
 
             case InstructionConstants.OP_FALOAD:
@@ -217,7 +230,14 @@ implements   AttributeVisitor,
             case InstructionConstants.OP_I2F:
             case InstructionConstants.OP_L2F:
             case InstructionConstants.OP_D2F:
-                replaceFloatPushInstruction(clazz, offset, simpleInstruction);
+                if (!sideEffectInstructionChecker.hasSideEffects(clazz,
+                                                                 method,
+                                                                 codeAttribute,
+                                                                 offset,
+                                                                 simpleInstruction))
+                {
+                    replaceFloatPushInstruction(clazz, offset, simpleInstruction);
+                }
                 break;
 
             case InstructionConstants.OP_DALOAD:
@@ -230,11 +250,25 @@ implements   AttributeVisitor,
             case InstructionConstants.OP_I2D:
             case InstructionConstants.OP_L2D:
             case InstructionConstants.OP_F2D:
-                replaceDoublePushInstruction(clazz, offset, simpleInstruction);
+                if (!sideEffectInstructionChecker.hasSideEffects(clazz,
+                                                                 method,
+                                                                 codeAttribute,
+                                                                 offset,
+                                                                 simpleInstruction))
+                {
+                    replaceDoublePushInstruction(clazz, offset, simpleInstruction);
+                }
                 break;
 
             case InstructionConstants.OP_AALOAD:
-                replaceReferencePushInstruction(clazz, offset, simpleInstruction);
+                if (!sideEffectInstructionChecker.hasSideEffects(clazz,
+                                                                 method,
+                                                                 codeAttribute,
+                                                                 offset,
+                                                                 simpleInstruction))
+                {
+                    replaceReferencePushInstruction(clazz, offset, simpleInstruction);
+                }
                 break;
         }
     }
@@ -307,9 +341,6 @@ implements   AttributeVisitor,
         {
             case InstructionConstants.OP_GETSTATIC:
             case InstructionConstants.OP_GETFIELD:
-                replaceAnyPushInstruction(clazz, offset, constantInstruction);
-                break;
-
             case InstructionConstants.OP_INVOKEVIRTUAL:
             case InstructionConstants.OP_INVOKESPECIAL:
             case InstructionConstants.OP_INVOKESTATIC:
@@ -354,15 +385,50 @@ implements   AttributeVisitor,
     }
 
 
-    public void visitAnySwitchInstruction(Clazz clazz, Method method, CodeAttribute codeAttribute, int offset, SwitchInstruction switchInstruction)
+    public void visitTableSwitchInstruction(Clazz clazz, Method method, CodeAttribute codeAttribute, int offset, TableSwitchInstruction tableSwitchInstruction)
     {
         // First try to simplify it to a simple branch.
-        replaceBranchInstruction(clazz, offset, switchInstruction);
+        replaceBranchInstruction(clazz, offset, tableSwitchInstruction);
 
-        // Otherwise make sure all branch targets are valid.
+        // Otherwise try to simplify simple enum switches.
         if (!codeAttributeEditor.isModified(offset))
         {
-            replaceSwitchInstruction(clazz, offset, switchInstruction);
+            replaceSimpleEnumSwitchInstruction(clazz,
+                                               codeAttribute,
+                                               offset,
+                                               tableSwitchInstruction);
+
+            // Otherwise make sure all branch targets are valid.
+            if (!codeAttributeEditor.isModified(offset))
+            {
+                cleanUpSwitchInstruction(clazz, offset, tableSwitchInstruction);
+
+                trimSwitchInstruction(clazz, offset, tableSwitchInstruction);
+            }
+        }
+    }
+
+
+    public void visitLookUpSwitchInstruction(Clazz clazz, Method method, CodeAttribute codeAttribute, int offset, LookUpSwitchInstruction lookUpSwitchInstruction)
+    {
+        // First try to simplify it to a simple branch.
+        replaceBranchInstruction(clazz, offset, lookUpSwitchInstruction);
+
+        // Otherwise try to simplify simple enum switches.
+        if (!codeAttributeEditor.isModified(offset))
+        {
+            replaceSimpleEnumSwitchInstruction(clazz,
+                                               codeAttribute,
+                                               offset,
+                                               lookUpSwitchInstruction);
+
+            // Otherwise make sure all branch targets are valid.
+            if (!codeAttributeEditor.isModified(offset))
+            {
+                cleanUpSwitchInstruction(clazz, offset, lookUpSwitchInstruction);
+
+                trimSwitchInstruction(clazz, offset, lookUpSwitchInstruction);
+            }
         }
     }
 
@@ -429,8 +495,9 @@ implements   AttributeVisitor,
         Value pushedValue = partialEvaluator.getStackAfter(offset).getTop(0);
         if (pushedValue.isParticular())
         {
+            // Push a constant instead.
             int value = pushedValue.integerValue().value();
-            if (value << 16 >> 16 == value)
+            if ((short)value == value)
             {
                 replaceConstantPushInstruction(clazz,
                                                offset,
@@ -445,13 +512,14 @@ implements   AttributeVisitor,
 
                 Instruction replacementInstruction =
                     new ConstantInstruction(InstructionConstants.OP_LDC,
-                                            constantPoolEditor.addIntegerConstant(value)).shrink();
+                                            constantPoolEditor.addIntegerConstant(value));
 
                 replaceInstruction(clazz, offset, instruction, replacementInstruction);
             }
         }
         else if (pushedValue.isSpecific())
         {
+            // Load an equivalent lower-numbered variable instead, if any.
             TracedVariables variables = partialEvaluator.getVariablesBefore(offset);
             for (int variableIndex = 0; variableIndex < maxVariableIndex; variableIndex++)
             {
@@ -462,6 +530,7 @@ implements   AttributeVisitor,
                                                    instruction,
                                                    InstructionConstants.OP_ILOAD,
                                                    variableIndex);
+                    break;
                 }
             }
         }
@@ -495,6 +564,7 @@ implements   AttributeVisitor,
         Value pushedValue = partialEvaluator.getStackAfter(offset).getTop(0);
         if (pushedValue.isParticular())
         {
+            // Push a constant instead.
             long value = pushedValue.longValue().value();
             if (value == 0L ||
                 value == 1L)
@@ -512,17 +582,21 @@ implements   AttributeVisitor,
 
                 Instruction replacementInstruction =
                     new ConstantInstruction(InstructionConstants.OP_LDC2_W,
-                                            constantPoolEditor.addLongConstant(value)).shrink();
+                                            constantPoolEditor.addLongConstant(value));
 
                 replaceInstruction(clazz, offset, instruction, replacementInstruction);
             }
         }
         else if (pushedValue.isSpecific())
         {
+            // Load an equivalent lower-numbered variable instead, if any.
             TracedVariables variables = partialEvaluator.getVariablesBefore(offset);
             for (int variableIndex = 0; variableIndex < maxVariableIndex; variableIndex++)
             {
-                if (pushedValue.equals(variables.load(variableIndex)))
+                // Note that we have to check the second part as well.
+                if (pushedValue.equals(variables.load(variableIndex)) &&
+                    variables.load(variableIndex + 1) != null         &&
+                    variables.load(variableIndex + 1).computationalType() == Value.TYPE_TOP)
                 {
                     replaceVariablePushInstruction(clazz,
                                                    offset,
@@ -562,6 +636,7 @@ implements   AttributeVisitor,
         Value pushedValue = partialEvaluator.getStackAfter(offset).getTop(0);
         if (pushedValue.isParticular())
         {
+            // Push a constant instead.
             // Make sure to distinguish between +0.0 and -0.0.
             float value = pushedValue.floatValue().value();
             if (value == 0.0f && Float.floatToIntBits(value) == POS_ZERO_FLOAT_BITS ||
@@ -581,13 +656,14 @@ implements   AttributeVisitor,
 
                 Instruction replacementInstruction =
                     new ConstantInstruction(InstructionConstants.OP_LDC,
-                                            constantPoolEditor.addFloatConstant(value)).shrink();
+                                            constantPoolEditor.addFloatConstant(value));
 
                 replaceInstruction(clazz, offset, instruction, replacementInstruction);
             }
         }
         else if (pushedValue.isSpecific())
         {
+            // Load an equivalent lower-numbered variable instead, if any.
             TracedVariables variables = partialEvaluator.getVariablesBefore(offset);
             for (int variableIndex = 0; variableIndex < maxVariableIndex; variableIndex++)
             {
@@ -631,6 +707,7 @@ implements   AttributeVisitor,
         Value pushedValue = partialEvaluator.getStackAfter(offset).getTop(0);
         if (pushedValue.isParticular())
         {
+            // Push a constant instead.
             // Make sure to distinguish between +0.0 and -0.0.
             double value = pushedValue.doubleValue().value();
             if (value == 0.0 && Double.doubleToLongBits(value) == POS_ZERO_DOUBLE_BITS ||
@@ -649,17 +726,21 @@ implements   AttributeVisitor,
 
                 Instruction replacementInstruction =
                     new ConstantInstruction(InstructionConstants.OP_LDC2_W,
-                                            constantPoolEditor.addDoubleConstant(value)).shrink();
+                                            constantPoolEditor.addDoubleConstant(value));
 
                 replaceInstruction(clazz, offset, instruction, replacementInstruction);
             }
         }
         else if (pushedValue.isSpecific())
         {
+            // Load an equivalent lower-numbered variable instead, if any.
             TracedVariables variables = partialEvaluator.getVariablesBefore(offset);
             for (int variableIndex = 0; variableIndex < maxVariableIndex; variableIndex++)
             {
-                if (pushedValue.equals(variables.load(variableIndex)))
+                // Note that we have to check the second part as well.
+                if (pushedValue.equals(variables.load(variableIndex)) &&
+                    variables.load(variableIndex + 1) != null         &&
+                    variables.load(variableIndex + 1).computationalType() == Value.TYPE_TOP)
                 {
                     replaceVariablePushInstruction(clazz,
                                                    offset,
@@ -704,7 +785,7 @@ implements   AttributeVisitor,
                                                 int         value)
     {
         Instruction replacementInstruction =
-            new SimpleInstruction(replacementOpcode, value).shrink();
+            new SimpleInstruction(replacementOpcode, value);
 
         replaceInstruction(clazz, offset, instruction, replacementInstruction);
     }
@@ -721,7 +802,7 @@ implements   AttributeVisitor,
                                                 int         variableIndex)
     {
         Instruction replacementInstruction =
-            new VariableInstruction(replacementOpcode, variableIndex).shrink();
+            new VariableInstruction(replacementOpcode, variableIndex);
 
         replaceInstruction(clazz, offset, instruction, replacementInstruction);
     }
@@ -799,8 +880,8 @@ implements   AttributeVisitor,
             {
                 // Replace the branch instruction by a simple branch instruction.
                 Instruction replacementInstruction =
-                    new BranchInstruction(InstructionConstants.OP_GOTO_W,
-                                          branchOffset).shrink();
+                    new BranchInstruction(InstructionConstants.OP_GOTO,
+                                          branchOffset);
 
                 replaceInstruction(clazz, offset, instruction, replacementInstruction);
             }
@@ -809,9 +890,185 @@ implements   AttributeVisitor,
 
 
     /**
+     * Replaces the given table switch instruction, if it is based on the value
+     * of a fixed array. This is typical for switches on simple enums.
+     */
+    private void replaceSimpleEnumSwitchInstruction(Clazz                  clazz,
+                                                    CodeAttribute          codeAttribute,
+                                                    int                    offset,
+                                                    TableSwitchInstruction tableSwitchInstruction)
+    {
+        // Check if the switch instruction is consuming a single value loaded
+        // from a fully specified array.
+        InstructionOffsetValue producerOffsets =
+            partialEvaluator.getStackBefore(offset).getTopProducerValue(0).instructionOffsetValue();
+
+        if (producerOffsets.instructionOffsetCount() == 1)
+        {
+            int producerOffset = producerOffsets.instructionOffset(0);
+
+            if (codeAttribute.code[producerOffset] == InstructionConstants.OP_IALOAD &&
+                !codeAttributeEditor.isModified(producerOffset))
+            {
+                ReferenceValue referenceValue =
+                    partialEvaluator.getStackBefore(producerOffset).getTop(1).referenceValue();
+
+                if (referenceValue.isParticular())
+                {
+                    // Simplify the entire construct.
+                    replaceSimpleEnumSwitchInstruction(clazz,
+                                                       codeAttribute,
+                                                       producerOffset,
+                                                       offset,
+                                                       tableSwitchInstruction,
+                                                       referenceValue);
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Replaces the given table switch instruction that is based on a value of
+     * the given fixed array.
+     */
+    private void replaceSimpleEnumSwitchInstruction(Clazz                  clazz,
+                                                    CodeAttribute          codeAttribute,
+                                                    int                    loadOffset,
+                                                    int                    switchOffset,
+                                                    TableSwitchInstruction tableSwitchInstruction,
+                                                    ReferenceValue         mappingValue)
+    {
+        ValueFactory valueFactory = new ParticularValueFactory();
+
+        // Transform the jump offsets.
+        int[] jumpOffsets    = tableSwitchInstruction.jumpOffsets;
+        int[] newJumpOffsets = new int[mappingValue.arrayLength(valueFactory).value()];
+
+        for (int index = 0; index < newJumpOffsets.length; index++)
+        {
+            int switchCase =
+                mappingValue.integerArrayLoad(valueFactory.createIntegerValue(
+                    index),
+                                              valueFactory).value();
+
+            newJumpOffsets[index] =
+                switchCase >= tableSwitchInstruction.lowCase &&
+                switchCase <= tableSwitchInstruction.highCase ?
+                    jumpOffsets[switchCase - tableSwitchInstruction.lowCase] :
+                    tableSwitchInstruction.defaultOffset;
+        }
+
+        // Update the instruction.
+        tableSwitchInstruction.lowCase     = 0;
+        tableSwitchInstruction.highCase    = newJumpOffsets.length - 1;
+        tableSwitchInstruction.jumpOffsets = newJumpOffsets;
+
+        // Replace the original one with the new version.
+        replaceSimpleEnumSwitchInstruction(clazz,
+                                           loadOffset,
+                                           switchOffset,
+                                           tableSwitchInstruction);
+
+        cleanUpSwitchInstruction(clazz, switchOffset, tableSwitchInstruction);
+
+        trimSwitchInstruction(clazz, switchOffset, tableSwitchInstruction);
+    }
+
+
+    /**
+     * Replaces the given look up switch instruction, if it is based on the
+     * value of a fixed array. This is typical for switches on simple enums.
+     */
+    private void replaceSimpleEnumSwitchInstruction(Clazz                   clazz,
+                                                    CodeAttribute           codeAttribute,
+                                                    int                     offset,
+                                                    LookUpSwitchInstruction lookupSwitchInstruction)
+    {
+        // Check if the switch instruction is consuming a single value loaded
+        // from a fully specified array.
+        InstructionOffsetValue producerOffsets =
+            partialEvaluator.getStackBefore(offset).getTopProducerValue(0).instructionOffsetValue();
+
+        if (producerOffsets.instructionOffsetCount() == 1)
+        {
+            int producerOffset = producerOffsets.instructionOffset(0);
+
+            if (codeAttribute.code[producerOffset] == InstructionConstants.OP_IALOAD &&
+                !codeAttributeEditor.isModified(producerOffset))
+            {
+                ReferenceValue referenceValue =
+                    partialEvaluator.getStackBefore(producerOffset).getTop(1).referenceValue();
+
+                if (referenceValue.isParticular())
+                {
+                    // Simplify the entire construct.
+                    replaceSimpleEnumSwitchInstruction(clazz,
+                                                       codeAttribute,
+                                                       producerOffset,
+                                                       offset,
+                                                       lookupSwitchInstruction,
+                                                       referenceValue);
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Replaces the given look up switch instruction that is based on a value of
+     * the given fixed array. This is typical for switches on simple enums.
+     */
+    private void replaceSimpleEnumSwitchInstruction(Clazz                   clazz,
+                                                    CodeAttribute           codeAttribute,
+                                                    int                     loadOffset,
+                                                    int                     switchOffset,
+                                                    LookUpSwitchInstruction lookupSwitchInstruction,
+                                                    ReferenceValue          mappingValue)
+    {
+        ValueFactory valueFactory = new ParticularValueFactory();
+
+        // Transform the jump offsets.
+        int[] cases          = lookupSwitchInstruction.cases;
+        int[] jumpOffsets    = lookupSwitchInstruction.jumpOffsets;
+        int[] newJumpOffsets = new int[mappingValue.arrayLength(valueFactory).value()];
+
+        for (int index = 0; index < newJumpOffsets.length; index++)
+        {
+            int switchCase =
+                mappingValue.integerArrayLoad(valueFactory.createIntegerValue(index),
+                                              valueFactory).value();
+
+            int caseIndex = Arrays.binarySearch(cases, switchCase);
+
+            newJumpOffsets[index] = caseIndex >= 0 ?
+                jumpOffsets[caseIndex] :
+                lookupSwitchInstruction.defaultOffset;
+        }
+
+        // Replace the original lookup switch with a table switch.
+        TableSwitchInstruction replacementSwitchInstruction =
+            new TableSwitchInstruction(InstructionConstants.OP_TABLESWITCH,
+                                       lookupSwitchInstruction.defaultOffset,
+                                       0,
+                                       newJumpOffsets.length - 1,
+                                       newJumpOffsets);
+
+        replaceSimpleEnumSwitchInstruction(clazz,
+                                           loadOffset,
+                                           switchOffset,
+                                           replacementSwitchInstruction);
+
+        cleanUpSwitchInstruction(clazz, switchOffset, replacementSwitchInstruction);
+
+        trimSwitchInstruction(clazz, switchOffset, replacementSwitchInstruction);
+    }
+
+
+    /**
      * Makes sure all branch targets of the given switch instruction are valid.
      */
-    private void replaceSwitchInstruction(Clazz             clazz,
+    private void cleanUpSwitchInstruction(Clazz             clazz,
                                           int               offset,
                                           SwitchInstruction switchInstruction)
     {
@@ -857,6 +1114,129 @@ implements   AttributeVisitor,
 
 
     /**
+     * Trims redundant offsets from the given switch instruction.
+     */
+    private void trimSwitchInstruction(Clazz                  clazz,
+                                       int                    offset,
+                                       TableSwitchInstruction tableSwitchInstruction)
+    {
+        // Get an offset that can serve as a valid default offset.
+        int   defaultOffset = tableSwitchInstruction.defaultOffset;
+        int[] jumpOffsets   = tableSwitchInstruction.jumpOffsets;
+        int   length        = jumpOffsets.length;
+
+        // Find the lowest index with a non-default jump offset.
+        int lowIndex = 0;
+        while (lowIndex < length &&
+               jumpOffsets[lowIndex] == defaultOffset)
+        {
+            lowIndex++;
+        }
+
+        // Find the highest index with a non-default jump offset.
+        int highIndex = length - 1;
+        while (highIndex >= 0 &&
+               jumpOffsets[highIndex] == defaultOffset)
+        {
+            highIndex--;
+        }
+
+        // Can we use a shorter array?
+        int newLength = highIndex - lowIndex + 1;
+        if (newLength < length)
+        {
+            if (newLength <= 0)
+            {
+                // Replace the switch instruction by a simple branch instruction.
+                Instruction replacementInstruction =
+                    new BranchInstruction(InstructionConstants.OP_GOTO,
+                                          defaultOffset);
+
+                replaceInstruction(clazz, offset, tableSwitchInstruction,
+                                   replacementInstruction);
+            }
+            else
+            {
+                // Trim the array.
+                int[] newJumpOffsets = new int[newLength];
+
+                System.arraycopy(jumpOffsets, lowIndex, newJumpOffsets, 0, newLength);
+
+                tableSwitchInstruction.jumpOffsets = newJumpOffsets;
+                tableSwitchInstruction.lowCase    += lowIndex;
+                tableSwitchInstruction.highCase   -= length - newLength - lowIndex;
+
+                replaceInstruction(clazz, offset, tableSwitchInstruction,
+                                   tableSwitchInstruction);
+            }
+        }
+    }
+
+
+    /**
+     * Trims redundant offsets from the given switch instruction.
+     */
+    private void trimSwitchInstruction(Clazz                   clazz,
+                                       int                     offset,
+                                       LookUpSwitchInstruction lookUpSwitchInstruction)
+    {
+        // Get an offset that can serve as a valid default offset.
+        int   defaultOffset = lookUpSwitchInstruction.defaultOffset;
+        int[] jumpOffsets   = lookUpSwitchInstruction.jumpOffsets;
+        int   length        = jumpOffsets.length;
+        int   newLength     = length;
+
+        // Count the default jump offsets.
+        for (int index = 0; index < length; index++)
+        {
+            if (jumpOffsets[index] == defaultOffset)
+            {
+                newLength--;
+            }
+        }
+
+        // Can we use shorter arrays?
+        if (newLength < length)
+        {
+            if (newLength <= 0)
+            {
+                // Replace the switch instruction by a simple branch instruction.
+                Instruction replacementInstruction =
+                    new BranchInstruction(InstructionConstants.OP_GOTO,
+                                          defaultOffset);
+
+                replaceInstruction(clazz, offset, lookUpSwitchInstruction,
+                                   replacementInstruction);
+            }
+            else
+            {
+                // Remove redundant entries from the arrays.
+                int[] cases          = lookUpSwitchInstruction.cases;
+                int[] newJumpOffsets = new int[newLength];
+                int[] newCases       = new int[newLength];
+
+                int newIndex = 0;
+
+                for (int index = 0; index < length; index++)
+                {
+                    if (jumpOffsets[index] != defaultOffset)
+                    {
+                        newJumpOffsets[newIndex] = jumpOffsets[index];
+                        newCases[newIndex++]     = cases[index];
+                    }
+                }
+
+                lookUpSwitchInstruction.jumpOffsets = newJumpOffsets;
+                lookUpSwitchInstruction.cases       = newCases;
+
+                replaceInstruction(clazz, offset, lookUpSwitchInstruction,
+                                   lookUpSwitchInstruction);
+            }
+        }
+    }
+
+
+    /**
      * Replaces the given instruction by an infinite loop.
      */
     private void replaceByInfiniteLoop(Clazz       clazz,
@@ -876,7 +1256,11 @@ implements   AttributeVisitor,
         {
             // Note: we're not passing the right arguments for now, knowing that
             // they aren't used anyway.
-            instruction.accept(clazz, null, null, offset, extraInstructionVisitor);
+            instruction.accept(clazz,
+                               null,
+                               null,
+                               offset,
+                               extraInstructionVisitor);
         }
     }
 
@@ -968,6 +1352,41 @@ implements   AttributeVisitor,
                                                             popInstructions);
                 break;
             }
+        }
+    }
+
+
+    /**
+     * Replaces the simple enum switch instructions at a given offsets by a
+     * given replacement instruction.
+     */
+    private void replaceSimpleEnumSwitchInstruction(Clazz             clazz,
+                                                    int               loadOffset,
+                                                    int               switchOffset,
+                                                    SwitchInstruction replacementSwitchInstruction)
+    {
+        if (DEBUG) System.out.println("  Replacing switch instruction at ["+switchOffset+"] -> ["+loadOffset+"] swap + pop, "+replacementSwitchInstruction.toString(switchOffset)+")");
+
+        // Remove the array load instruction.
+        codeAttributeEditor.replaceInstruction(loadOffset, new Instruction[]
+            {
+                new SimpleInstruction(InstructionConstants.OP_SWAP),
+                new SimpleInstruction(InstructionConstants.OP_POP),
+            });
+
+        // Replace the switch instruction.
+        codeAttributeEditor.replaceInstruction(switchOffset, replacementSwitchInstruction);
+
+        // Visit the instruction, if required.
+        if (extraInstructionVisitor != null)
+        {
+            // Note: we're not passing the right arguments for now, knowing that
+            // they aren't used anyway.
+            replacementSwitchInstruction.accept(clazz,
+                                                null,
+                                                null,
+                                                switchOffset,
+                                                extraInstructionVisitor);
         }
     }
 }

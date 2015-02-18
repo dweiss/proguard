@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -32,15 +32,17 @@ import proguard.classfile.attribute.visitor.AttributeVisitor;
 public class UnknownAttribute extends Attribute
 {
     public final int    u4attributeLength;
-    public byte[] info;
+    public       byte[] info;
 
 
     /**
-     * Creates an uninitialized UnknownAttribute with the given length.
+     * Creates an uninitialized UnknownAttribute with the specified name and
+     * length.
      */
-    public UnknownAttribute(int attributeLength)
+    public UnknownAttribute(int u2attributeNameIndex,
+                            int attributeLength)
     {
-        u4attributeLength = attributeLength;
+        this(u2attributeNameIndex, attributeLength, null);
     }
 
 

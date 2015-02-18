@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -42,10 +42,10 @@ extends      SimplifiedVisitor
 implements   InstructionVisitor,
              ConstantVisitor
 {
-    /*
-    public  static       boolean DEBUG = true;
-    /*/
+    //*
     private static final boolean DEBUG = false;
+    /*/
+    public  static       boolean DEBUG = true;
     //*/
 
     public static final int X = InstructionSequenceMatcher.X;
@@ -153,7 +153,8 @@ implements   InstructionVisitor,
     {
         // Reset the instruction sequence matcher if the instruction is a branch
         // target or if it has already been modified.
-        if (branchTargetFinder.isTarget(offset) ||
+        if ((branchTargetFinder != null &&
+             branchTargetFinder.isTarget(offset)) ||
             codeAttributeEditor.isModified(offset))
         {
             instructionSequenceMatcher.reset();
@@ -187,7 +188,7 @@ implements   InstructionVisitor,
             for (int index = 0; index < replacementInstructions.length; index++)
             {
                 codeAttributeEditor.replaceInstruction(instructionSequenceMatcher.matchedInstructionOffset(index),
-                                                       replacementInstructionFactory.create(clazz, index).shrink());
+                                                       replacementInstructionFactory.create(clazz, index));
             }
 
             // Delete any remaining instructions in the from sequence.
@@ -253,7 +254,7 @@ implements   InstructionVisitor,
                                                   this);
 
             // Return it.
-            return replacementInstruction.shrink();
+            return replacementInstruction;
         }
 
 

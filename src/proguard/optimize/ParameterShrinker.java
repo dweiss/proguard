@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -29,7 +29,7 @@ import proguard.classfile.visitor.MemberVisitor;
 import proguard.optimize.info.ParameterUsageMarker;
 
 /**
- * This MemberVisitor removes unused parameters from the code of the methods
+ * This AttributeVisitor removes unused parameters from the code of the methods
  * that it visits.
  *
  * @see ParameterUsageMarker
@@ -41,7 +41,11 @@ public class ParameterShrinker
 extends      SimplifiedVisitor
 implements   AttributeVisitor
 {
+    //*
     private static final boolean DEBUG = false;
+    /*/
+    private static       boolean DEBUG = System.getProperty("ps") != null;
+    //*/
 
 
     private final MemberVisitor extraVariableMemberVisitor;

@@ -4,11 +4,12 @@
 # Usage:
 #     java -jar proguard.jar @android.pro
 #
-# If you're using the Android SDK (version 2.3 or higher), the android tool
-# already creates a file like this in your project, called proguard.cfg.
-# It should contain the settings of this file, minus the input and output paths
-# (-injars, -outjars, -libraryjars, -printmapping, and -printseeds).
-# The generated Ant build file automatically sets these paths.
+# If you're using the Android SDK, the Ant release build and Eclipse export
+# already take care of the proper settings. You only need to enable ProGuard
+# by commenting in the corresponding line in project.properties. You can still
+# add project-specific configuration in proguard-project.txt.
+#
+# This configuration file is for custom, stand-alone builds.
 
 # Specify the input jars, output jars, and library jars.
 # Note that ProGuard works with Java bytecode (.class),
@@ -87,6 +88,13 @@
     public <init>(android.content.Context, android.util.AttributeSet, int);
 }
 
+# Preserve all possible onClick handlers.
+
+-keepclassmembers class * extends android.content.Context {
+   public void *(android.view.View);
+   public void *(android.view.MenuItem);
+}
+
 # Preserve the special fields of all Parcelable implementations.
 
 -keepclassmembers class * implements android.os.Parcelable {
@@ -98,6 +106,12 @@
 
 -keepclassmembers class **.R$* {
   public static <fields>;
+}
+
+# Preserve annotated Javascript interface methods.
+
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
 }
 
 # Preserve the required interface from the License Verification Library
@@ -114,14 +128,14 @@
 
 # Preserve all native method names and the names of their classes.
 
--keepclasseswithmembernames class * {
+-keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
 }
 
 # Preserve the special static methods that are required in all enumeration
 # classes.
 
--keepclassmembers class * extends java.lang.Enum {
+-keepclassmembers,allowoptimization enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
@@ -147,3 +161,14 @@
 # -keep public class mypackage.MyClass
 # -keep public interface mypackage.MyInterface
 # -keep public class * implements mypackage.MyInterface
+
+# If you wish, you can let the optimization step remove Android logging calls.
+
+#-assumenosideeffects class android.util.Log {
+#    public static boolean isLoggable(java.lang.String, int);
+#    public static int v(...);
+#    public static int i(...);
+#    public static int w(...);
+#    public static int d(...);
+#    public static int e(...);
+#}

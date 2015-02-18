@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -72,8 +72,7 @@ implements   MemberVisitor
         // Special cases: <clinit> and <init> are always kept unchanged.
         // We can ignore them here.
         String name = member.getName(clazz);
-        if (name.equals(ClassConstants.INTERNAL_METHOD_NAME_CLINIT) ||
-            name.equals(ClassConstants.INTERNAL_METHOD_NAME_INIT))
+        if (ClassUtil.isInitializer(name))
         {
             return;
         }
@@ -81,7 +80,7 @@ implements   MemberVisitor
         // Get the member's descriptor.
         String descriptor = member.getDescriptor(clazz);
 
-        // Check whether we're allowed to do aggressive overloading
+        // Check whether we're allowed to overload aggressively.
         if (!allowAggressiveOverloading)
         {
             // Trim the return argument from the descriptor if not.

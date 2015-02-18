@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -23,12 +23,11 @@ package proguard.classfile.editor;
 import proguard.classfile.*;
 import proguard.classfile.attribute.*;
 import proguard.classfile.attribute.visitor.AttributeVisitor;
-import proguard.classfile.constant.*;
-import proguard.classfile.constant.visitor.ConstantVisitor;
+import proguard.classfile.constant.Utf8Constant;
 import proguard.classfile.util.*;
 import proguard.classfile.visitor.ClassVisitor;
 
-import java.util.*;
+import java.util.Arrays;
 
 /**
  * This ClassVisitor sorts the interfaces of the program classes that it visits.
@@ -40,6 +39,9 @@ extends      SimplifiedVisitor
 implements   ClassVisitor,
              AttributeVisitor
 {
+    private static final boolean DEBUG = false;
+
+
     // Implementations for ClassVisitor.
 
     public void visitProgramClass(ProgramClass programClass)
@@ -52,27 +54,29 @@ implements   ClassVisitor,
             // Sort the interfaces.
             Arrays.sort(interfaces, 0, interfacesCount);
 
+            // Update the signature.
+            programClass.attributesAccept(this);
+
             // Remove any duplicate entries.
-            int newInterfacesCount     = 0;
-            int previousInterfaceIndex = 0;
-            for (int index = 0; index < interfacesCount; index++)
+            boolean[] delete = null;
+            for (int index = 1; index < interfacesCount; index++)
             {
-                int interfaceIndex = interfaces[index];
-
-                // Isn't this a duplicate of the previous interface?
-                if (interfaceIndex != previousInterfaceIndex)
+                if (interfaces[index] == interfaces[index - 1])
                 {
-                    interfaces[newInterfacesCount++] = interfaceIndex;
+                    // Lazily create the array.
+                    if (delete == null)
+                    {
+                        delete = new boolean[interfacesCount];
+                    }
 
-                    // Remember the interface.
-                    previousInterfaceIndex = interfaceIndex;
+                    delete[index] = true;
                 }
             }
 
-            programClass.u2interfacesCount = newInterfacesCount;
-
-            // Update the signature, if any
-            programClass.attributesAccept(this);
+            if (delete != null)
+            {
+                new InterfaceDeleter(delete).visitProgramClass(programClass);
+            }
         }
     }
 
@@ -84,69 +88,159 @@ implements   ClassVisitor,
 
     public void visitSignatureAttribute(Clazz clazz, SignatureAttribute signatureAttribute)
     {
-        // Process the generic definitions, superclass, and implemented
-        // interfaces.
-        String signature = clazz.getString(signatureAttribute.u2signatureIndex);
+        Clazz[] referencedClasses    = signatureAttribute.referencedClasses;
+        Clazz[] newReferencedClasses = referencedClasses == null ? null :
+            new Clazz[referencedClasses.length];
 
-        // Count the signature types.
+        // Recompose the signature types in a string buffer.
+        StringBuffer newSignatureBuffer = new StringBuffer();
+
+        // Also update the array with referenced classes.
+        int referencedClassIndex    = 0;
+        int newReferencedClassIndex = 0;
+
+        // Process the generic definitions and superclass.
         InternalTypeEnumeration internalTypeEnumeration =
-            new InternalTypeEnumeration(signature);
+            new InternalTypeEnumeration(signatureAttribute.getSignature(clazz));
 
-        int count           =  0;
-        int interfacesCount = -1;
-        while (internalTypeEnumeration.hasMoreTypes())
+        // Copy the variable type declarations.
+        if (internalTypeEnumeration.hasFormalTypeParameters())
         {
-            String internalType = internalTypeEnumeration.nextType();
+            String type = internalTypeEnumeration.formalTypeParameters();
 
-            count++;
+            // Append the type.
+            newSignatureBuffer.append(type);
 
-            if (ClassUtil.isInternalClassType(internalType))
+            // Copy any referenced classes.
+            if (newReferencedClasses != null)
             {
-                interfacesCount++;
+                int classCount =
+                    new DescriptorClassEnumeration(type).classCount();
+
+                for (int counter = 0; counter < classCount; counter++)
+                {
+                    newReferencedClasses[newReferencedClassIndex++] =
+                        referencedClasses[referencedClassIndex++];
+                }
+            }
+
+            if (DEBUG)
+            {
+                System.out.println("InterfaceDeleter:   type parameters = " + type);
             }
         }
 
-        // Put the signature types in an array.
-        internalTypeEnumeration =
-            new InternalTypeEnumeration(signature);
-
-        String[] internalTypes = new String[count];
-
-        for (int index = 0; index < count; index++)
+        // Copy the super class type.
+        if (internalTypeEnumeration.hasMoreTypes())
         {
-            String internalType = internalTypeEnumeration.nextType();
+            String type = internalTypeEnumeration.nextType();
 
-            internalTypes[index] = internalType;
+            // Append the type.
+            newSignatureBuffer.append(type);
+
+            // Copy any referenced classes.
+            if (newReferencedClasses != null)
+            {
+                int classCount =
+                    new DescriptorClassEnumeration(type).classCount();
+
+                for (int counter = 0; counter < classCount; counter++)
+                {
+                    newReferencedClasses[newReferencedClassIndex++] =
+                        referencedClasses[referencedClassIndex++];
+                }
+            }
+
+            if (DEBUG)
+            {
+                System.out.println("InterfaceSorter:   super class type = " + type);
+            }
         }
 
-        // Sort the interface types in the array.
-        Arrays.sort(internalTypes, count - interfacesCount, count);
+        int firstReferencedInterfaceIndex = referencedClassIndex;
 
-        // Recompose the signature types in a string.
-        StringBuffer newSignatureBuffer = new StringBuffer();
-
-        for (int index = 0; index < count; index++)
+        // Copy the interface types, based on the sorted interface classes.
+        // This has the advantage that we will disregard any interface types
+        // that are not in the interface classes, like in some versions of
+        // the Scala runtime library.
+        for (int interfaceIndex = 0; interfaceIndex < clazz.getInterfaceCount(); interfaceIndex++)
         {
-            // Is this not an interface type, or an interface type that isn't
-            // a duplicate of the previous interface type?
-            if (index < count - interfacesCount ||
-                !internalTypes[index].equals(internalTypes[index-1]))
+            // Consider the interface class name.
+            String interfaceName = clazz.getInterfaceName(interfaceIndex);
+
+            referencedClassIndex = firstReferencedInterfaceIndex;
+
+            // Find the corresponding interface type.
+            InternalTypeEnumeration internalInterfaceTypeEnumeration =
+                new InternalTypeEnumeration(signatureAttribute.getSignature(clazz));
+
+            // Skip the superclass type.
+            internalInterfaceTypeEnumeration.nextType();
+
+            while (internalInterfaceTypeEnumeration.hasMoreTypes())
             {
-                newSignatureBuffer.append(internalTypes[index]);
+                String type = internalInterfaceTypeEnumeration.nextType();
+
+                DescriptorClassEnumeration classEnumeration =
+                    new DescriptorClassEnumeration(type);
+
+                int classCount =
+                    classEnumeration.classCount();
+
+                classEnumeration.nextFluff();
+
+                if (interfaceName.equals(classEnumeration.nextClassName()))
+                {
+                    // Append the type.
+                    newSignatureBuffer.append(type);
+
+                    // Copy any referenced classes.
+                    if (newReferencedClasses != null)
+                    {
+                        for (int counter = 0; counter < classCount; counter++)
+                        {
+                            newReferencedClasses[newReferencedClassIndex++] =
+                                referencedClasses[referencedClassIndex++];
+                        }
+                    }
+
+                    if (DEBUG)
+                    {
+                        System.out.println("InterfaceSorter:   interface type = " + type);
+                    }
+                }
+                else
+                {
+                    // Skip all referenced classes.
+                    referencedClassIndex += classCount;
+                }
             }
         }
 
         String newSignature = newSignatureBuffer.toString();
 
         // Did the signature change?
-        if (!newSignature.equals(signature))
+        if (!newSignature.equals(signatureAttribute.getSignature(clazz)))
         {
             // Update the signature.
             ((Utf8Constant)((ProgramClass)clazz).constantPool[signatureAttribute.u2signatureIndex]).setString(newSignatureBuffer.toString());
 
-            // Clear the referenced classes.
-            // TODO: Properly update the referenced classes.
-            signatureAttribute.referencedClasses = null;
+            // Update the referenced classes.
+            signatureAttribute.referencedClasses = newReferencedClasses;
+
+            if (DEBUG)
+            {
+                System.out.println("InterfaceSorter: result = "+newSignature);
+                System.out.println("InterfaceSorter: referenced classes:");
+
+                if (newReferencedClasses != null)
+                {
+                    for (int index = 0; index < newReferencedClasses.length; index++)
+                    {
+                        System.out.println("  #"+index+" "+newReferencedClasses[index]);
+                    }
+                }
+            }
         }
     }
 }

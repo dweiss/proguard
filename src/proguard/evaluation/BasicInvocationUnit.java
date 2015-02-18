@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -68,7 +68,7 @@ implements   InvocationUnit,
 
         // Initialize the parameters.
         boolean isStatic =
-            (method.getAccessFlags() & ClassConstants.INTERNAL_ACC_STATIC) != 0;
+            (method.getAccessFlags() & ClassConstants.ACC_STATIC) != 0;
 
         // Count the number of parameters, taking into account their categories.
         int parameterSize = ClassUtil.internalMethodParameterSize(descriptor, isStatic);
@@ -225,7 +225,7 @@ implements   InvocationUnit,
 
         // Push the return value, if applicable.
         String returnType = ClassUtil.internalMethodReturnType(type);
-        if (returnType.charAt(0) != ClassConstants.INTERNAL_TYPE_VOID)
+        if (returnType.charAt(0) != ClassConstants.TYPE_VOID)
         {
             stack.push(getMethodReturnValue(clazz, methodrefConstant, returnType));
         }
@@ -250,7 +250,7 @@ implements   InvocationUnit,
 
         // Push the return value, if applicable.
         String returnType = ClassUtil.internalMethodReturnType(type);
-        if (returnType.charAt(0) != ClassConstants.INTERNAL_TYPE_VOID)
+        if (returnType.charAt(0) != ClassConstants.TYPE_VOID)
         {
             stack.push(getMethodReturnValue(clazz, invokeDynamicConstant, returnType));
         }
@@ -417,9 +417,4 @@ implements   InvocationUnit,
             returnTypeClass = referencedClasses[referencedClasses.length - 1];
         }
     }
-
-
-//    public void visitLibraryMember(LibraryClass libraryClass, LibraryMember libraryMember)
-//    {
-//    }
 }

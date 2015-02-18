@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -47,11 +47,19 @@ implements   AttributeVisitor,
     //*
     private static final boolean DEBUG = false;
     /*/
-    private static       boolean DEBUG = true;
+    private static       boolean DEBUG = System.getProperty("btf") != null;
     //*/
 
-    public static final int NONE            = -2;
-    public static final int AT_METHOD_ENTRY = -1;
+    public static final int NONE = -1;
+
+    // We'll explicitly mark instructions that are not part of a subroutine,
+    // with NO_SUBROUTINE. Subroutines may just branch back into normal code
+    // (e.g. due to a break instruction in Java code), and we want to avoid
+    // marking such normal code as subroutine. The first mark wins, so we're
+    // assuming that such code is marked as normal code before it is marked
+    // as subroutine.
+    public static final int UNKNOWN       = -1;
+    public static final int NO_SUBROUTINE = -2;
 
     private static final short INSTRUCTION           = 1 << 0;
     private static final short BRANCH_ORIGIN         = 1 << 1;
@@ -72,9 +80,10 @@ implements   AttributeVisitor,
     private int[]   creationOffsets       = new int[ClassConstants.TYPICAL_CODE_LENGTH];
     private int[]   initializationOffsets = new int[ClassConstants.TYPICAL_CODE_LENGTH];
     private int     superInitializationOffset;
+    private boolean containsSubroutines;
 
+    private boolean repeat;
     private int     currentSubroutineStart;
-    private int     currentSubroutineEnd;
     private int[]   recentCreationOffsets = new int[MAXIMUM_CREATION_OFFSETS];
     private int     recentCreationOffsetIndex;
     private boolean isInitializer;
@@ -191,7 +200,7 @@ implements   AttributeVisitor,
      */
     public boolean isSubroutine(int offset)
     {
-        return subroutineStarts[offset] != NONE;
+        return subroutineStarts[offset] >= 0;
     }
 
 
@@ -291,6 +300,16 @@ implements   AttributeVisitor,
     }
 
 
+    /**
+     * Returns whether the method contains subroutines, in the CodeAttribute
+     * that was visited most recently.
+     */
+    public boolean containsSubroutines()
+    {
+        return containsSubroutines;
+    }
+
+
     // Implementations for AttributeVisitor.
 
     public void visitAnyAttribute(Clazz clazz, Attribute attribute) {}
@@ -314,8 +333,8 @@ implements   AttributeVisitor,
             initializationOffsets = new int[codeLength];
 
             // Reset the arrays.
-            Arrays.fill(subroutineStarts,      0, codeLength, NONE);
-            Arrays.fill(subroutineEnds,        0, codeLength, NONE);
+            Arrays.fill(subroutineStarts,      0, codeLength, UNKNOWN);
+            Arrays.fill(subroutineEnds,        0, codeLength, UNKNOWN);
             Arrays.fill(creationOffsets,       0, codeLength, NONE);
             Arrays.fill(initializationOffsets, 0, codeLength, NONE);
         }
@@ -323,8 +342,8 @@ implements   AttributeVisitor,
         {
             // Reset the arrays.
             Arrays.fill(instructionMarks,      0, codeLength, (short)0);
-            Arrays.fill(subroutineStarts,      0, codeLength, NONE);
-            Arrays.fill(subroutineEnds,        0, codeLength, NONE);
+            Arrays.fill(subroutineStarts,      0, codeLength, UNKNOWN);
+            Arrays.fill(subroutineEnds,        0, codeLength, UNKNOWN);
             Arrays.fill(creationOffsets,       0, codeLength, NONE);
             Arrays.fill(initializationOffsets, 0, codeLength, NONE);
 
@@ -332,82 +351,73 @@ implements   AttributeVisitor,
         }
 
         superInitializationOffset = NONE;
+        containsSubroutines       = false;
 
-        // We're assuming all subroutines are contiguous blocks of code.
-        // We're not starting in a subroutine.
-        currentSubroutineStart = NONE;
-        currentSubroutineEnd   = NONE;
-
-        recentCreationOffsetIndex = 0;
-
-        // Initialize the stack of 'new' instruction offsets if this method is
-        // an instance initializer.
-        if (method.getName(clazz).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT))
+        // Iterate until all subroutines have been fully marked.
+        do
         {
-            recentCreationOffsets[recentCreationOffsetIndex++] = AT_METHOD_ENTRY;
+            repeat                    = false;
+            currentSubroutineStart    = NO_SUBROUTINE;
+            recentCreationOffsetIndex = 0;
+
+            // Mark branch targets by going over all instructions.
+            codeAttribute.instructionsAccept(clazz, method, this);
+
+            // Mark branch targets in the exception table.
+            codeAttribute.exceptionsAccept(clazz, method, this);
         }
+        while (repeat);
 
         // The end of the code is a branch target sentinel.
         instructionMarks[codeLength] = BRANCH_TARGET;
 
-        // Mark branch targets by going over all instructions.
-        codeAttribute.instructionsAccept(clazz, method, this);
-
-        // Mark branch targets in the exception table.
-        codeAttribute.exceptionsAccept(clazz, method, this);
-
-        // Fill out any gaps in the subroutine starts and the subroutine ends
-        // and subroutine returning flags, working backward.
-
-        // We're not starting in a subroutine.
-        int     subroutineStart     = NONE;
-        int     subroutineEnd       = codeLength;
-        boolean subroutineReturning = false;
-
-        for (int index = codeLength - 1; index >= 0; index--)
+        if (containsSubroutines)
         {
-            if (isInstruction(index))
+            // Set the subroutine returning flag and the subroutine end at each
+            // subroutine start.
+            int previousSubroutineStart = NO_SUBROUTINE;
+
+            for (int offset = 0; offset < codeLength; offset++)
             {
-                // Are we inside a previously marked subroutine?
-                if (subroutineStarts[index] != NONE)
+                if (isInstruction(offset))
                 {
-                    // Update the current subroutine start.
-                    subroutineStart = subroutineStarts[index];
-                }
-                else if (subroutineStart != NONE)
-                {
-                    // Mark the subroutine start.
-                    subroutineStarts[index] = subroutineStart;
-                }
+                    int subroutineStart = subroutineStarts[offset];
 
-                // Did we reach the start of the subroutine.
-                if (isSubroutineStart(index))
-                {
-                    // Stop marking it.
-                    subroutineStart = NONE;
-                }
-
-                // Are we inside a subroutine?
-                if (isSubroutine(index))
-                {
-                    // Mark the subroutine end.
-                    subroutineEnds[index] = subroutineEnd;
-
-                    // Update or mark the subroutine returning flag.
-                    if (isSubroutineReturning(index))
+                    if (subroutineStart >= 0 &&
+                        isSubroutineReturning(offset))
                     {
-                        subroutineReturning = true;
+                        instructionMarks[subroutineStart] |= SUBROUTINE_RETURNING;
                     }
-                    else if (subroutineReturning)
+
+                    if (previousSubroutineStart >= 0)
                     {
-                        instructionMarks[index] |= SUBROUTINE_RETURNING;
+                        subroutineEnds[previousSubroutineStart] = offset;
                     }
+
+                    previousSubroutineStart = subroutineStart;
                 }
-                else
+            }
+
+            if (previousSubroutineStart >= 0)
+            {
+                subroutineEnds[previousSubroutineStart] = codeLength;
+            }
+
+            // Set the subroutine returning flag and the subroutine end at each
+            // subroutine instruction, based on the marks at the subroutine
+            // start.
+            for (int offset = 0; offset < codeLength; offset++)
+            {
+                if (isSubroutine(offset))
                 {
-                    // Update the subroutine end and returning flag.
-                    subroutineEnd       = index;
-                    subroutineReturning = false;
+                    int subroutineStart = subroutineStarts[offset];
+
+                    if (isSubroutineReturning(subroutineStart))
+                    {
+                        instructionMarks[offset] |= SUBROUTINE_RETURNING;
+                    }
+
+                    subroutineEnds[offset] = subroutineEnds[subroutineStart];
                 }
             }
         }
@@ -447,7 +457,7 @@ implements   AttributeVisitor,
         // Mark the instruction.
         instructionMarks[offset] |= INSTRUCTION;
 
-        // Check if this is the first instruction of a subroutine.
+        // Check if this is an instruction of a subroutine.
         checkSubroutine(offset);
 
         byte opcode = simpleInstruction.opcode;
@@ -472,36 +482,42 @@ implements   AttributeVisitor,
         // Mark the instruction.
         instructionMarks[offset] |= INSTRUCTION;
 
-        // Check if this is the first instruction of a subroutine.
+        // Check if this is an instruction of a subroutine.
         checkSubroutine(offset);
 
-        // Check if the instruction is a 'new' instruction.
-        if (constantInstruction.opcode == InstructionConstants.OP_NEW)
+        byte opcode = constantInstruction.opcode;
+        if (opcode == InstructionConstants.OP_NEW)
         {
             // Push the 'new' instruction offset on the stack.
             recentCreationOffsets[recentCreationOffsetIndex++] = offset;
         }
-        else
+        else if (opcode == InstructionConstants.OP_INVOKESPECIAL)
         {
-            // Check if the instruction is an initializer invocation.
+            // Is it calling an instance initializer?
             isInitializer = false;
             clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
             if (isInitializer)
             {
-                // Pop the 'new' instruction offset from the stack.
-                int recentCreationOffset = recentCreationOffsets[--recentCreationOffsetIndex];
-
-                // Fill it out in the creation offsets.
-                creationOffsets[offset] = recentCreationOffset;
-
-                // Fill out the initialization offsets.
-                if (recentCreationOffset == AT_METHOD_ENTRY)
+                // Do we have any 'new' instruction offsets on the stack?
+                if (recentCreationOffsetIndex > 0)
                 {
-                    superInitializationOffset = offset;
+                    // Pop the 'new' instruction offset from the stack.
+                    int recentCreationOffset = recentCreationOffsets[--recentCreationOffsetIndex];
+
+                    // Link the creation offset and the initialization offset.
+                    // TODO: There could be multiple initialization offsets.
+                    creationOffsets[offset] = recentCreationOffset;
+
+                    initializationOffsets[recentCreationOffset] = offset;
                 }
                 else
                 {
-                    initializationOffsets[recentCreationOffset] = offset;
+                    // Remember the super initialization offset.
+                    // TODO: There could be multiple initialization offsets.
+                    // For instance, in the constructor of the generated class
+                    // groovy.inspect.swingui.GeneratedBytecodeAwareGroovyClassLoader
+                    // in groovy-all-2.2.1.jar.
+                    superInitializationOffset = offset;
                 }
             }
         }
@@ -513,15 +529,18 @@ implements   AttributeVisitor,
         // Mark the instruction.
         instructionMarks[offset] |= INSTRUCTION;
 
-        // Check if this is the first instruction of a subroutine.
+        // Check if this is an instruction of a subroutine.
         checkSubroutine(offset);
 
         if (variableInstruction.opcode == InstructionConstants.OP_RET)
         {
+            // Mark the method.
+            containsSubroutines = true;
+
             // Mark the branch origin.
             markBranchOrigin(offset);
 
-            // Mark the regular subroutine return.
+            // Mark the subroutine return at its return instruction.
             instructionMarks[offset] |= SUBROUTINE_RETURNING;
 
             // Mark the next instruction.
@@ -532,28 +551,39 @@ implements   AttributeVisitor,
 
     public void visitBranchInstruction(Clazz clazz, Method method, CodeAttribute codeAttribute, int offset, BranchInstruction branchInstruction)
     {
+        int branchOffset = branchInstruction.branchOffset;
+        int targetOffset = offset + branchOffset;
+
         // Mark the branch origin.
         markBranchOrigin(offset);
 
-        // Check if this is the first instruction of a subroutine.
+        // Check if this is an instruction of a subroutine.
         checkSubroutine(offset);
 
         // Mark the branch target.
-        markBranchTarget(offset, branchInstruction.branchOffset);
+        markBranchTarget(offset, branchOffset);
 
         byte opcode = branchInstruction.opcode;
         if (opcode == InstructionConstants.OP_JSR ||
             opcode == InstructionConstants.OP_JSR_W)
         {
+            // Mark the method.
+            containsSubroutines = true;
+
             // Mark the subroutine invocation.
             instructionMarks[offset] |= SUBROUTINE_INVOCATION;
 
-            // Mark the subroutine start.
-            int targetOffset = offset + branchInstruction.branchOffset;
-            subroutineStarts[targetOffset] = targetOffset;
+            // Mark the new subroutine start.
+            markBranchSubroutineStart(offset, branchOffset, targetOffset);
         }
-        else if (opcode == InstructionConstants.OP_GOTO ||
-                 opcode == InstructionConstants.OP_GOTO_W)
+        else if (currentSubroutineStart != UNKNOWN)
+        {
+            // Mark the continued subroutine start.
+            markBranchSubroutineStart(offset, branchOffset, currentSubroutineStart);
+        }
+
+        if (opcode == InstructionConstants.OP_GOTO ||
+            opcode == InstructionConstants.OP_GOTO_W)
         {
             // Mark the next instruction.
             markAfterBranchOrigin(offset + branchInstruction.length(offset));
@@ -566,15 +596,14 @@ implements   AttributeVisitor,
         // Mark the branch origin.
         markBranchOrigin(offset);
 
-        // Check if this is the first instruction of a subroutine.
+        // Check if this is an instruction of a subroutine.
         checkSubroutine(offset);
 
         // Mark the branch targets of the default jump offset.
-        markBranchTarget(offset, switchInstruction.defaultOffset);
+        markBranch(offset, switchInstruction.defaultOffset);
 
         // Mark the branch targets of the jump offsets.
-        markBranchTargets(offset,
-                          switchInstruction.jumpOffsets);
+        markBranches(offset, switchInstruction.jumpOffsets);
 
         // Mark the next instruction.
         markAfterBranchOrigin(offset + switchInstruction.length(offset));
@@ -588,7 +617,8 @@ implements   AttributeVisitor,
 
     public void visitMethodrefConstant(Clazz clazz, MethodrefConstant methodrefConstant)
     {
-        isInitializer = methodrefConstant.getName(clazz).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT);
+        // Remember whether the method is an initializer.
+        isInitializer = methodrefConstant.getName(clazz).equals(ClassConstants.METHOD_NAME_INIT);
     }
 
 
@@ -596,27 +626,54 @@ implements   AttributeVisitor,
 
     public void visitExceptionInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, ExceptionInfo exceptionInfo)
     {
+        int startPC   = exceptionInfo.u2startPC;
+        int endPC     = exceptionInfo.u2endPC;
+        int handlerPC = exceptionInfo.u2handlerPC;
+
         // Mark the exception offsets.
-        instructionMarks[exceptionInfo.u2startPC]   |= EXCEPTION_START;
-        instructionMarks[exceptionInfo.u2endPC]     |= EXCEPTION_END;
-        instructionMarks[exceptionInfo.u2handlerPC] |= EXCEPTION_HANDLER;
+        instructionMarks[startPC]   |= EXCEPTION_START;
+        instructionMarks[endPC]     |= EXCEPTION_END;
+        instructionMarks[handlerPC] |= EXCEPTION_HANDLER;
+
+        // Mark the handler as part of a subroutine if necessary.
+        if (subroutineStarts[handlerPC] == UNKNOWN &&
+            subroutineStarts[startPC]   != UNKNOWN)
+        {
+            subroutineStarts[handlerPC] = subroutineStarts[startPC];
+
+            // We'll have to go over all instructions again.
+            repeat = true;
+        }
     }
 
 
     // Small utility methods.
 
     /**
-     * Marks the branch targets of the given jump offsets for the instruction
-     * at the given offset.
+     * Marks the branch targets and their subroutine starts at the given
+     * offsets.
      */
-    private void markBranchTargets(int offset, int[] jumpOffsets)
+    private void markBranches(int offset, int[] jumpOffsets)
     {
         for (int index = 0; index < jumpOffsets.length; index++)
         {
-            markBranchTarget(offset, jumpOffsets[index]);
+            markBranch(offset, jumpOffsets[index]);
         }
     }
 
+
+    /**
+     * Marks the branch target and its subroutine start at the given offset.
+     */
+    private void markBranch(int offset, int jumpOffset)
+    {
+        markBranchTarget(offset, jumpOffset);
+
+        if (currentSubroutineStart != UNKNOWN)
+        {
+            markBranchSubroutineStart(offset, jumpOffset, currentSubroutineStart);
+        }
+    }
 
     /**
      * Marks the branch origin at the given offset.
@@ -635,18 +692,37 @@ implements   AttributeVisitor,
         int targetOffset = offset + jumpOffset;
 
         instructionMarks[targetOffset] |= BRANCH_TARGET;
+    }
 
-        // Are we inside a previously marked subroutine?
-        if (isSubroutine(offset))
+
+    /**
+     * Marks the subroutine start at the given offset, if applicable.
+     */
+    private void markBranchSubroutineStart(int offset,
+                                           int jumpOffset,
+                                           int subroutineStart)
+    {
+        int targetOffset = offset + jumpOffset;
+
+        // Are we marking a subroutine and branching to an offset that hasn't
+        // been marked yet?
+        if (subroutineStarts[targetOffset] == UNKNOWN)
         {
-            // Mark the subroutine start of the target.
-            subroutineStarts[targetOffset] = currentSubroutineStart;
-
-            // Update the current subroutine end.
-            if (currentSubroutineEnd < targetOffset)
+            // Is it a backward branch?
+            if (jumpOffset < 0)
             {
-                currentSubroutineEnd = targetOffset;
+                // Remember the smallest subroutine start.
+                if (subroutineStart > targetOffset)
+                {
+                    subroutineStart = targetOffset;
+                }
+
+                // We'll have to go over all instructions again.
+                repeat = true;
             }
+
+            // Mark the subroutine start of the target.
+            subroutineStarts[targetOffset] = subroutineStart;
         }
     }
 
@@ -658,12 +734,8 @@ implements   AttributeVisitor,
     {
         instructionMarks[nextOffset] |= AFTER_BRANCH;
 
-        // Are we at the end of the current subroutine?
-        if (currentSubroutineEnd <= nextOffset)
-        {
-            // Reset the subroutine start.
-            currentSubroutineStart = NONE;
-        }
+        // Stop marking a subroutine.
+        currentSubroutineStart = UNKNOWN;
     }
 
 
@@ -673,14 +745,16 @@ implements   AttributeVisitor,
     private void checkSubroutine(int offset)
     {
         // Are we inside a previously marked subroutine?
-        if (isSubroutine(offset))
+        if (subroutineStarts[offset] != UNKNOWN)
         {
-            // Update the current subroutine start.
+            // Start marking a subroutine.
             currentSubroutineStart = subroutineStarts[offset];
         }
-        else
+
+        // Are we marking a subroutine?
+        else if (currentSubroutineStart != UNKNOWN)
         {
-            // Mark the subroutine start (or NONE).
+            // Mark the subroutine start.
             subroutineStarts[offset] = currentSubroutineStart;
         }
     }

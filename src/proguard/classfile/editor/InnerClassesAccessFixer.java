@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,12 +21,12 @@
 package proguard.classfile.editor;
 
 import proguard.classfile.*;
-import proguard.classfile.attribute.visitor.InnerClassesInfoVisitor;
 import proguard.classfile.attribute.InnerClassesInfo;
+import proguard.classfile.attribute.visitor.InnerClassesInfoVisitor;
 import proguard.classfile.constant.*;
 import proguard.classfile.constant.visitor.ConstantVisitor;
 import proguard.classfile.util.*;
-import proguard.classfile.visitor.*;
+import proguard.classfile.visitor.ClassVisitor;
 
 /**
  * This InnerClassesInfoVisitor fixes the inner class access flags of the
