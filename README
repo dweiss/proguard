@@ -1,3 +1,16 @@
+ProGuard clone with support for package renaming
+================================================
+
+This is a fork of ProGuard but with a tiny extension (on the 
+'renamer' branch) to support easier renaming of entire packages.
+
+For example:
+
+-renamepackage com.google=>com.acme.dependencies.google
+-renamepackage com.foo=>com.acme.dependencies.foo
+
+Original README follows.
+
 ProGuard, Java class file shrinker, optimizer, obfuscator, and preverifier
 ==========================================================================
 
