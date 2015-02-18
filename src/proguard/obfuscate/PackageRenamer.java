@@ -52,6 +52,7 @@ public class PackageRenamer implements ClassVisitor, MemberVisitor
             className, 
             ClassUtil.externalType(programField.getDescriptor(programClass)),
             programField.getName(programClass),
+            className,
             programField.getName(programClass));
             
     }
@@ -66,6 +67,9 @@ public class PackageRenamer implements ClassVisitor, MemberVisitor
             ClassUtil.externalMethodReturnType(programMethod.getDescriptor(programClass)),
             programMethod.getName(programClass),
             ClassUtil.externalMethodArguments(programMethod.getDescriptor(programClass)),
+            className,
+            0,
+            0,
             programMethod.getName(programClass));
     }
     
