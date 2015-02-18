@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,21 +21,20 @@
 package proguard.evaluation.value;
 
 import proguard.classfile.*;
-import proguard.classfile.util.ClassUtil;
 
 /**
- * This class provides methods to create and reuse IntegerValue objects.
+ * This particular value factory attaches a unique ID to any unknown values.
  *
  * @author Eric Lafortune
  */
 public class IdentifiedValueFactory
-extends      SpecificValueFactory
+extends      ParticularValueFactory
 {
-    private int integerID;
-    private int longID;
-    private int floatID;
-    private int doubleID;
-    private int referenceID;
+    protected int integerID;
+    protected int longID;
+    protected int floatID;
+    protected int doubleID;
+    protected int referenceID;
 
 
     // Implementations for ValueFactory.
@@ -70,6 +69,24 @@ extends      SpecificValueFactory
     {
         return type == null ?
             REFERENCE_VALUE_NULL :
-            new IdentifiedReferenceValue(type, referencedClass, mayBeNull, this, referenceID++);
+            new IdentifiedReferenceValue(type,
+                                         referencedClass,
+                                         mayBeNull,
+                                         this,
+                                         referenceID++);
+    }
+
+
+    public ReferenceValue createArrayReferenceValue(String       type,
+                                                    Clazz        referencedClass,
+                                                    IntegerValue arrayLength)
+    {
+        return type == null ?
+            REFERENCE_VALUE_NULL :
+            new IdentifiedArrayReferenceValue(ClassConstants.TYPE_ARRAY + type,
+                                              referencedClass,
+                                              arrayLength,
+                                              this,
+                                              referenceID++);
     }
 }

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,16 +21,10 @@
 package proguard;
 
 import proguard.classfile.ClassPool;
-import proguard.classfile.attribute.visitor.AllAttributeVisitor;
-import proguard.classfile.constant.visitor.AllConstantVisitor;
-import proguard.classfile.instruction.visitor.AllInstructionVisitor;
-import proguard.classfile.util.*;
 import proguard.classfile.visitor.*;
 import proguard.optimize.*;
-import proguard.util.*;
 
 import java.io.*;
-import java.util.*;
 
 /**
  * This class prints out the seeds specified by keep options.

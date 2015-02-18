@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -63,6 +63,15 @@ public class ClassElementValue extends ElementValue
 
 
     /**
+     * Returns the class info name.
+     */
+    public String getClassName(Clazz clazz)
+    {
+        return clazz.getString(u2classInfoIndex);
+    }
+
+
+    /**
      * Applies the given visitor to all referenced classes.
      */
     public void referencedClassesAccept(ClassVisitor classVisitor)
@@ -83,7 +92,7 @@ public class ClassElementValue extends ElementValue
 
     // Implementations for ElementValue.
 
-    public int getTag()
+    public char getTag()
     {
         return ClassConstants.ELEMENT_VALUE_CLASS;
     }

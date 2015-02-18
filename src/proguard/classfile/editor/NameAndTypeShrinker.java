@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,7 +25,6 @@ import proguard.classfile.attribute.*;
 import proguard.classfile.attribute.visitor.AttributeVisitor;
 import proguard.classfile.constant.*;
 import proguard.classfile.constant.visitor.ConstantVisitor;
-import proguard.classfile.editor.ConstantPoolRemapper;
 import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.ClassVisitor;
 
@@ -163,11 +162,10 @@ implements   ClassVisitor,
         // Shift the used constant pool entries together.
         for (int index = 1; index < length; index++)
         {
-            constantIndexMap[index] = counter;
-
             Constant constant = constantPool[index];
 
-            // Don't update the flag if this is the second half of a long entry.
+            // Is the constant being used? Don't update the flag if this is the
+            // second half of a long entry.
             if (constant != null)
             {
                 isUsed = constant.getTag() != ClassConstants.CONSTANT_NameAndType ||
@@ -176,7 +174,16 @@ implements   ClassVisitor,
 
             if (isUsed)
             {
+                // Remember the new index.
+                constantIndexMap[index] = counter;
+
+                // Shift the constant pool entry.
                 constantPool[counter++] = constant;
+            }
+            else
+            {
+                // Remember an invalid index.
+                constantIndexMap[index] = -1;
             }
         }
 

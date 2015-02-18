@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -54,18 +54,6 @@ public class InputReader
     public void execute(ClassPool programClassPool,
                         ClassPool libraryClassPool) throws IOException
     {
-        // Check if we have at least some input classes.
-        if (configuration.programJars == null)
-        {
-            throw new IOException("The input is empty. You have to specify one or more '-injars' options");
-        }
-
-        // Perform some sanity checks on the class paths.
-        checkInputOutput(configuration.libraryJars,
-                         configuration.programJars);
-        checkInputOutput(configuration.programJars,
-                         configuration.programJars);
-
         WarningPrinter warningPrinter = new WarningPrinter(System.err, configuration.warn);
         WarningPrinter notePrinter    = new WarningPrinter(System.out, configuration.note);
 
@@ -115,6 +103,7 @@ public class InputReader
         {
             System.err.println("Note: there were " + noteCount +
                                " duplicate class definitions.");
+            System.err.println("      (http://proguard.sourceforge.net/manual/troubleshooting.html#duplicateclass)");
         }
 
         // Print out a summary of the warnings, if necessary.
@@ -125,44 +114,13 @@ public class InputReader
                                " classes in incorrectly named files.");
             System.err.println("         You should make sure all file names correspond to their class names.");
             System.err.println("         The directory hierarchies must correspond to the package hierarchies.");
+            System.err.println("         (http://proguard.sourceforge.net/manual/troubleshooting.html#unexpectedclass)");
 
             if (!configuration.ignoreWarnings)
             {
                 System.err.println("         If you don't mind the mentioned classes not being written out,");
                 System.err.println("         you could try your luck using the '-ignorewarnings' option.");
                 throw new IOException("Please correct the above warnings first.");
-            }
-        }
-    }
-
-
-    /**
-     * Performs some sanity checks on the class paths.
-     */
-    private void checkInputOutput(ClassPath inputClassPath,
-                                  ClassPath outputClassPath)
-    throws IOException
-    {
-        if (inputClassPath == null ||
-            outputClassPath == null)
-        {
-            return;
-        }
-
-        for (int index1 = 0; index1 < inputClassPath.size(); index1++)
-        {
-            ClassPathEntry entry1 = inputClassPath.get(index1);
-            if (!entry1.isOutput())
-            {
-                for (int index2 = 0; index2 < outputClassPath.size(); index2++)
-                {
-                    ClassPathEntry entry2 = outputClassPath.get(index2);
-                    if (entry2.isOutput() &&
-                        entry2.getName().equals(entry1.getName()))
-                    {
-                        throw new IOException("Input jars and output jars must be different ["+entry1.getName()+"]");
-                    }
-                }
             }
         }
     }

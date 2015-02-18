@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,17 +21,23 @@
 package proguard.classfile.editor;
 
 import proguard.classfile.*;
+import proguard.classfile.attribute.*;
+import proguard.classfile.attribute.visitor.AttributeVisitor;
+import proguard.classfile.util.SimplifiedVisitor;
 import proguard.classfile.visitor.*;
-import proguard.util.StringMatcher;
 
 
 /**
  * This ClassVisitor deletes attributes with a given name in the program
- * classes that it visits.
+ * classes, fields, methods, or code attributes that it visits.
  *
  * @author Eric Lafortune
  */
-public class NamedAttributeDeleter implements ClassVisitor
+public class NamedAttributeDeleter
+extends      SimplifiedVisitor
+implements   ClassVisitor,
+             MemberVisitor,
+             AttributeVisitor
 {
     private final String attributeName;
 
@@ -50,5 +56,27 @@ public class NamedAttributeDeleter implements ClassVisitor
     public void visitProgramClass(ProgramClass programClass)
     {
         new AttributesEditor(programClass, false).deleteAttribute(attributeName);
+    }
+
+
+    // Implementations for MemberVisitor.
+
+    public void visitLibraryMember(LibraryClass libraryClass, LibraryMember libraryMember) {}
+
+
+    public void visitProgramMember(ProgramClass programClass, ProgramMember programMember)
+    {
+        new AttributesEditor(programClass, programMember, false).deleteAttribute(attributeName);
+    }
+
+
+    // Implementations for AttributeVisitor.
+
+    public void visitAnyAttribute(Clazz clazz, Attribute attribute) {}
+
+
+    public void visitCodeAttribute(Clazz clazz, Method method, CodeAttribute codeAttribute)
+    {
+        new AttributesEditor((ProgramClass)clazz, (ProgramMember)method, codeAttribute, false).deleteAttribute(attributeName);
     }
 }

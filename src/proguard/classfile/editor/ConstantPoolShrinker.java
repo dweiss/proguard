@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -52,6 +52,7 @@ implements   ClassVisitor,
              ExceptionInfoVisitor,
              StackMapFrameVisitor,
              VerificationTypeVisitor,
+             ParameterInfoVisitor,
              LocalVariableInfoVisitor,
              LocalVariableTypeInfoVisitor,
              AnnotationVisitor,
@@ -251,6 +252,15 @@ implements   ClassVisitor,
     }
 
 
+    public void visitMethodParametersAttribute(Clazz clazz, Method method, MethodParametersAttribute methodParametersAttribute)
+    {
+        markConstant(clazz, methodParametersAttribute.u2attributeNameIndex);
+
+        // Mark the constant pool entries referenced by the parameter information.
+        methodParametersAttribute.parametersAccept(clazz, method, this);
+    }
+
+
     public void visitExceptionsAttribute(Clazz clazz, Method method, ExceptionsAttribute exceptionsAttribute)
     {
         markConstant(clazz, exceptionsAttribute.u2attributeNameIndex);
@@ -405,6 +415,14 @@ implements   ClassVisitor,
     }
 
 
+    // Implementations for ParameterInfoVisitor.
+
+    public void visitParameterInfo(Clazz clazz, Method method, int parameterIndex, ParameterInfo parameterInfo)
+    {
+        markConstant(clazz, parameterInfo.u2nameIndex);
+    }
+
+
     // Implementations for LocalVariableInfoVisitor.
 
     public void visitLocalVariableInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableInfo localVariableInfo)
@@ -554,11 +572,10 @@ implements   ClassVisitor,
         // Shift the used constant pool entries together.
         for (int index = 1; index < length; index++)
         {
-            constantIndexMap[index] = counter;
-
             Constant constant = constantPool[index];
 
-            // Don't update the flag if this is the second half of a long entry.
+            // Is the constant being used? Don't update the flag if this is the
+            // second half of a long entry.
             if (constant != null)
             {
                 isUsed = isUsed(constant);
@@ -566,7 +583,16 @@ implements   ClassVisitor,
 
             if (isUsed)
             {
+                // Remember the new index.
+                constantIndexMap[index] = counter;
+
+                // Shift the constant pool entry.
                 constantPool[counter++] = constant;
+            }
+            else
+            {
+                // Remember an invalid index.
+                constantIndexMap[index] = -1;
             }
         }
 

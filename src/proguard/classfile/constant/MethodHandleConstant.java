@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,7 @@ public class MethodHandleConstant extends Constant
      * An extra field pointing to the java.lang.invoke.MethodHandle Clazz object.
      * This field is typically filled out by the <code>{@link
      * proguard.classfile.util.ClassReferenceInitializer
-     * ClassReferenceInitializer}</code>..
+     * ClassReferenceInitializer}</code>.
      */
     public Clazz javaLangInvokeMethodHandleClass;
 
@@ -92,6 +92,14 @@ public class MethodHandleConstant extends Constant
         return u2referenceIndex;
     }
 
+
+    /**
+     * Returns the class name.
+     */
+    public String getClassName(Clazz clazz)
+    {
+        return clazz.getRefClassName(u2referenceIndex);
+    }
 
     /**
      * Returns the method/field name.

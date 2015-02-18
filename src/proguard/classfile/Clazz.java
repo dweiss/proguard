@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -89,6 +89,11 @@ public interface Clazz extends VisitorAccepter
      * Returns the type of the NameAndTypeConstant at the specified index.
      */
     public String getType(int constantIndex);
+
+    /**
+     * Returns the class name of the RefConstant at the specified index.
+     */
+    public String getRefClassName(int constantIndex);
 
     /**
      * Returns the name of the RefConstant at the specified index.

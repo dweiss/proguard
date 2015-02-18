@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -141,7 +141,7 @@ public class ProgramClass implements Clazz
         }
         catch (ClassCastException ex)
         {
-            throw ((IllegalStateException)new IllegalStateException("Expected ClassConstant at index ["+constantIndex+"] in class ["+getName()+"]").initCause(ex));
+            throw ((IllegalStateException)new IllegalStateException("Expected ClassConstant at index ["+constantIndex+"]").initCause(ex));
         }
     }
 
@@ -169,6 +169,18 @@ public class ProgramClass implements Clazz
         }
     }
 
+
+    public String getRefClassName(int constantIndex)
+    {
+        try
+        {
+            return ((RefConstant)constantPool[constantIndex]).getClassName(this);
+        }
+        catch (ClassCastException ex)
+        {
+            throw ((IllegalStateException)new IllegalStateException("Expected RefConstant at index ["+constantIndex+"] in class ["+getName()+"]").initCause(ex));
+        }
+    }
 
     public String getRefName(int constantIndex)
     {
@@ -519,12 +531,12 @@ public class ProgramClass implements Clazz
     public boolean mayHaveImplementations(Method method)
     {
         return
-            (u2accessFlags & ClassConstants.INTERNAL_ACC_FINAL) == 0 &&
+            (u2accessFlags & ClassConstants.ACC_FINAL) == 0 &&
             (method == null ||
-             ((method.getAccessFlags() & (ClassConstants.INTERNAL_ACC_PRIVATE |
-                                          ClassConstants.INTERNAL_ACC_STATIC  |
-                                          ClassConstants.INTERNAL_ACC_FINAL)) == 0 &&
-              !method.getName(this).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT)));
+             ((method.getAccessFlags() & (ClassConstants.ACC_PRIVATE |
+                                          ClassConstants.ACC_STATIC  |
+                                          ClassConstants.ACC_FINAL)) == 0 &&
+              !method.getName(this).equals(ClassConstants.METHOD_NAME_INIT)));
     }
 
 

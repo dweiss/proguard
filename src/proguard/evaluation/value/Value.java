@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -45,7 +45,7 @@ public abstract class Value
      */
     public Category1Value category1Value()
     {
-        throw new IllegalArgumentException("Value is not a Category 1 value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not a Category 1 value [" + this.getClass().getName() + "]");
     }
 
     /**
@@ -53,7 +53,7 @@ public abstract class Value
      */
     public Category2Value category2Value()
     {
-        throw new IllegalArgumentException("Value is not a Category 2 value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not a Category 2 value [" + this.getClass().getName() + "]");
     }
 
 
@@ -62,7 +62,7 @@ public abstract class Value
      */
     public IntegerValue integerValue()
     {
-        throw new IllegalArgumentException("Value is not an integer value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not an integer value [" + this.getClass().getName() + "]");
     }
 
     /**
@@ -70,7 +70,7 @@ public abstract class Value
      */
     public LongValue longValue()
     {
-        throw new IllegalArgumentException("Value is not a long value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not a long value [" + this.getClass().getName() + "]");
     }
 
     /**
@@ -78,7 +78,7 @@ public abstract class Value
      */
     public FloatValue floatValue()
     {
-        throw new IllegalArgumentException("Value is not a float value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not a float value [" + this.getClass().getName() + "]");
     }
 
     /**
@@ -86,7 +86,7 @@ public abstract class Value
      */
     public DoubleValue doubleValue()
     {
-        throw new IllegalArgumentException("Value is not a double value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not a double value [" + this.getClass().getName() + "]");
     }
 
     /**
@@ -94,7 +94,7 @@ public abstract class Value
      */
     public ReferenceValue referenceValue()
     {
-        throw new IllegalArgumentException("Value is not a reference value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not a reference value [" + this.getClass().getName() + "]");
     }
 
     /**
@@ -102,7 +102,7 @@ public abstract class Value
      */
     public InstructionOffsetValue instructionOffsetValue()
     {
-        throw new IllegalArgumentException("Value is not an instruction offset value [" + this.getClass().getName() + "]");
+        throw new IllegalArgumentException("Value \"" + this.toString() + "\" is not an instruction offset value [" + this.getClass().getName() + "]");
     }
 
 
@@ -154,15 +154,15 @@ public abstract class Value
 
     /**
      * Returns the internal type of this Value.
-     * @return <code>ClassConstants.INTERNAL_TYPE_BOOLEAN</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_BYTE</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_CHAR</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_SHORT</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_INT</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_LONG</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_FLOAT</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_DOUBLE</code>,
-     *         <code>ClassConstants.INTERNAL_TYPE_CLASS_START ... ClassConstants.INTERNAL_TYPE_CLASS_END</code>, or
+     * @return <code>ClassConstants.TYPE_BOOLEAN</code>,
+     *         <code>ClassConstants.TYPE_BYTE</code>,
+     *         <code>ClassConstants.TYPE_CHAR</code>,
+     *         <code>ClassConstants.TYPE_SHORT</code>,
+     *         <code>ClassConstants.TYPE_INT</code>,
+     *         <code>ClassConstants.TYPE_LONG</code>,
+     *         <code>ClassConstants.TYPE_FLOAT</code>,
+     *         <code>ClassConstants.TYPE_DOUBLE</code>,
+     *         <code>ClassConstants.TYPE_CLASS_START ... ClassConstants.TYPE_CLASS_END</code>, or
      *         an array type containing any of these types (always as String).
      */
     public abstract String internalType();

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -134,7 +134,10 @@ final class ParticularFloatValue extends SpecificFloatValue
 
     public FloatValue generalize(ParticularFloatValue other)
     {
-        return this.value == other.value ? this : ValueFactory.FLOAT_VALUE;
+        // Also handle NaN and Infinity.
+        return Float.floatToRawIntBits(this.value) ==
+               Float.floatToRawIntBits(other.value) ?
+                   this : ValueFactory.FLOAT_VALUE;
     }
 
     public FloatValue add(ParticularFloatValue other)
@@ -179,9 +182,9 @@ final class ParticularFloatValue extends SpecificFloatValue
 
     public IntegerValue compare(ParticularFloatValue other)
     {
-        return this.value <  other.value ? SpecificValueFactory.INTEGER_VALUE_M1 :
-               this.value == other.value ? SpecificValueFactory.INTEGER_VALUE_0  :
-                                           SpecificValueFactory.INTEGER_VALUE_1;
+        return this.value <  other.value ? ParticularValueFactory.INTEGER_VALUE_M1 :
+               this.value == other.value ? ParticularValueFactory.INTEGER_VALUE_0  :
+                                           ParticularValueFactory.INTEGER_VALUE_1;
     }
 
 
@@ -197,8 +200,10 @@ final class ParticularFloatValue extends SpecificFloatValue
 
     public boolean equals(Object object)
     {
+        // Also handle NaN and Infinity.
         return super.equals(object) &&
-               this.value == ((ParticularFloatValue)object).value;
+               Float.floatToIntBits(this.value) ==
+               Float.floatToIntBits(((ParticularFloatValue)object).value);
     }
 
 

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -50,8 +50,10 @@ implements   ClassVisitor,
 {
     private final UsageMarker usageMarker;
 
-    private       int[]                constantIndexMap     = new int[ClassConstants.TYPICAL_CONSTANT_POOL_SIZE];
-    private final ConstantPoolRemapper constantPoolRemapper = new ConstantPoolRemapper();
+    private       int[]                   constantIndexMap        = new int[ClassConstants.TYPICAL_CONSTANT_POOL_SIZE];
+    private       int[]                   bootstrapMethodIndexMap = new int[ClassConstants.TYPICAL_CONSTANT_POOL_SIZE];
+    private final ConstantPoolRemapper    constantPoolRemapper    = new ConstantPoolRemapper();
+    private final BootstrapMethodRemapper bootstrapMethodRemapper = new BootstrapMethodRemapper();
 
 
     /**
@@ -71,10 +73,13 @@ implements   ClassVisitor,
     {
         // Shrink the arrays for constant pool, interfaces, fields, methods,
         // and class attributes.
-        programClass.u2interfacesCount =
-            shrinkConstantIndexArray(programClass.constantPool,
-                                     programClass.u2interfaces,
-                                     programClass.u2interfacesCount);
+        if (programClass.u2interfacesCount > 0)
+        {
+            new InterfaceDeleter(shrinkFlags(programClass.constantPool,
+                                             programClass.u2interfaces,
+                                             programClass.u2interfacesCount))
+                .visitProgramClass(programClass);
+        }
 
         // Shrinking the constant pool also sets up an index map.
         int newConstantPoolCount =
@@ -109,8 +114,11 @@ implements   ClassVisitor,
             constantPoolRemapper.visitProgramClass(programClass);
         }
 
-        // Remove the unused interfaces from the class signature.
-        programClass.attributesAccept(new SignatureShrinker());
+        // Replace any unused classes in the signatures.
+        MySignatureCleaner signatureCleaner = new MySignatureCleaner();
+        programClass.fieldsAccept(new AllAttributeVisitor(signatureCleaner));
+        programClass.methodsAccept(new AllAttributeVisitor(signatureCleaner));
+        programClass.attributesAccept(signatureCleaner);
 
         // Compact the extra field pointing to the subclasses of this class.
         programClass.subClasses =
@@ -150,9 +158,18 @@ implements   ClassVisitor,
     public void visitBootstrapMethodsAttribute(Clazz clazz, BootstrapMethodsAttribute bootstrapMethodsAttribute)
     {
         // Shrink the array of BootstrapMethodInfo objects.
-        bootstrapMethodsAttribute.u2bootstrapMethodsCount =
-            shrinkArray(bootstrapMethodsAttribute.bootstrapMethods,
-                        bootstrapMethodsAttribute.u2bootstrapMethodsCount);
+        int newBootstrapMethodsCount =
+            shrinkBootstrapMethodArray(bootstrapMethodsAttribute.bootstrapMethods,
+                                       bootstrapMethodsAttribute.u2bootstrapMethodsCount);
+
+        if (newBootstrapMethodsCount < bootstrapMethodsAttribute.u2bootstrapMethodsCount)
+        {
+            bootstrapMethodsAttribute.u2bootstrapMethodsCount = newBootstrapMethodsCount;
+
+            // Remap all constant pool references.
+            bootstrapMethodRemapper.setConstantIndexMap(bootstrapMethodIndexMap);
+            clazz.constantPoolEntriesAccept(bootstrapMethodRemapper);
+        }
     }
 
 
@@ -189,6 +206,27 @@ implements   ClassVisitor,
         codeAttribute.u2attributesCount =
             shrinkArray(codeAttribute.attributes,
                         codeAttribute.u2attributesCount);
+
+        // Shrink the attributes themselves.
+        codeAttribute.attributesAccept(clazz, method, this);
+    }
+
+
+    public void visitLocalVariableTableAttribute(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableTableAttribute localVariableTableAttribute)
+    {
+        // Shrink the local variable info array.
+        localVariableTableAttribute.u2localVariableTableLength =
+            shrinkArray(localVariableTableAttribute.localVariableTable,
+                        localVariableTableAttribute.u2localVariableTableLength);
+    }
+
+
+    public void visitLocalVariableTypeTableAttribute(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableTypeTableAttribute localVariableTypeTableAttribute)
+    {
+        // Shrink the local variable type info array.
+        localVariableTypeTableAttribute.u2localVariableTypeTableLength =
+            shrinkArray(localVariableTypeTableAttribute.localVariableTypeTable,
+                        localVariableTypeTableAttribute.u2localVariableTypeTableLength);
     }
 
 
@@ -207,7 +245,7 @@ implements   ClassVisitor,
     public void visitAnyParameterAnnotationsAttribute(Clazz clazz, Method method, ParameterAnnotationsAttribute parameterAnnotationsAttribute)
     {
         // Loop over all parameters.
-        for (int parameterIndex = 0; parameterIndex < parameterAnnotationsAttribute.u2parametersCount; parameterIndex++)
+        for (int parameterIndex = 0; parameterIndex < parameterAnnotationsAttribute.u1parametersCount; parameterIndex++)
         {
             // Shrink the parameter annotations array.
             parameterAnnotationsAttribute.u2parameterAnnotationsCount[parameterIndex] =
@@ -235,10 +273,10 @@ implements   ClassVisitor,
 
 
     /**
-     * This AttributeVisitor updates the Utf8 constants of class signatures,
-     * removing any unused interfaces.
+     * This AttributeVisitor updates the Utf8 constants of signatures
+     * of classes, fields, and methods.
      */
-    private class SignatureShrinker
+    private class MySignatureCleaner
     extends       SimplifiedVisitor
     implements    AttributeVisitor
     {
@@ -250,55 +288,41 @@ implements   ClassVisitor,
             Clazz[] referencedClasses = signatureAttribute.referencedClasses;
             if (referencedClasses != null)
             {
-                // Go over the generic definitions, superclass and implemented interfaces.
-                String signature = clazz.getString(signatureAttribute.u2signatureIndex);
+                // Go over the classes in the signature.
+                String signature = signatureAttribute.getSignature(clazz);
 
-                InternalTypeEnumeration internalTypeEnumeration =
-                    new InternalTypeEnumeration(signature);
+                DescriptorClassEnumeration classEnumeration =
+                    new DescriptorClassEnumeration(signature);
 
+                int referencedClassIndex = 0;
+
+                // Start construction a new signature.
                 StringBuffer newSignatureBuffer = new StringBuffer();
 
-                int referencedClassIndex    = 0;
-                int newReferencedClassIndex = 0;
+                newSignatureBuffer.append(classEnumeration.nextFluff());
 
-                while (internalTypeEnumeration.hasMoreTypes())
+                while (classEnumeration.hasMoreClassNames())
                 {
-                    // Consider the classes referenced by this signature.
-                    String type       = internalTypeEnumeration.nextType();
-                    int    classCount = new DescriptorClassEnumeration(type).classCount();
+                    String className = classEnumeration.nextClassName();
 
+                    // Replace the class name if it is unused.
                     Clazz referencedClass = referencedClasses[referencedClassIndex];
-                    if (referencedClass == null ||
-                        usageMarker.isUsed(referencedClass))
+                    if (referencedClass != null &&
+                        !usageMarker.isUsed(referencedClass))
                     {
-                        // Append the superclass or interface.
-                        newSignatureBuffer.append(type);
+                        className = ClassConstants.NAME_JAVA_LANG_OBJECT;
 
-                        // Copy the referenced classes.
-                        for (int counter = 0; counter < classCount; counter++)
-                        {
-                            referencedClasses[newReferencedClassIndex++] =
-                                referencedClasses[referencedClassIndex++];
-                        }
+                        referencedClasses[referencedClassIndex] = null;
                     }
-                    else
-                    {
-                        // Skip the referenced classes.
-                        referencedClassIndex += classCount;
-                    }
+
+                    referencedClassIndex++;
+
+                    newSignatureBuffer.append(className);
+                    newSignatureBuffer.append(classEnumeration.nextFluff());
                 }
 
-                if (newReferencedClassIndex < referencedClassIndex)
-                {
-                    // Update the signature.
-                    ((Utf8Constant)((ProgramClass)clazz).constantPool[signatureAttribute.u2signatureIndex]).setString(newSignatureBuffer.toString());
-
-                    // Clear the unused entries.
-                    while (newReferencedClassIndex < referencedClassIndex)
-                    {
-                        referencedClasses[newReferencedClassIndex++] = null;
-                    }
-                }
+                // Update the signature.
+                ((Utf8Constant)((ProgramClass)clazz).constantPool[signatureAttribute.u2signatureIndex]).setString(newSignatureBuffer.toString());
             }
         }
     }
@@ -332,7 +356,8 @@ implements   ClassVisitor,
 
     /**
      * Removes all entries that are not marked as being used from the given
-     * constant pool.
+     * constant pool. Creates a map from the old indices to the new indices
+     * as a side effect.
      * @return the new number of entries.
      */
     private int shrinkConstantPool(Constant[] constantPool, int length)
@@ -352,7 +377,8 @@ implements   ClassVisitor,
 
             Constant constant = constantPool[index];
 
-            // Don't update the flag if this is the second half of a long entry.
+            // Is the constant being used? Don't update the flag if this is the
+            // second half of a long entry.
             if (constant != null)
             {
                 isUsed = usageMarker.isUsed(constant);
@@ -360,7 +386,16 @@ implements   ClassVisitor,
 
             if (isUsed)
             {
+                // Remember the new index.
+                constantIndexMap[index] = counter;
+
+                // Shift the constant pool entry.
                 constantPool[counter++] = constant;
+            }
+            else
+            {
+                // Remember an invalid index.
+                constantIndexMap[index] = -1;
             }
         }
 
@@ -368,6 +403,28 @@ implements   ClassVisitor,
         Arrays.fill(constantPool, counter, length, null);
 
         return counter;
+    }
+
+
+    /**
+     * Creates an array marking unused constant pool entries for all the
+     * elements in the given array of constant pool indices.
+     * @return an array of flags indicating unused elements.
+     */
+    private boolean[] shrinkFlags(Constant[] constantPool, int[] array, int length)
+    {
+        boolean[] unused = new boolean[length];
+
+        // Shift the used objects together.
+        for (int index = 0; index < length; index++)
+        {
+            if (!usageMarker.isUsed(constantPool[array[index]]))
+            {
+                unused[index] = true;
+            }
+        }
+
+        return unused;
     }
 
 
@@ -430,6 +487,49 @@ implements   ClassVisitor,
 
 
     /**
+     * Removes all entries that are not marked as being used from the given
+     * array of bootstrap methods. Creates a map from the old indices to the
+     * new indices as a side effect.
+     * @return the new number of entries.
+     */
+    private int shrinkBootstrapMethodArray(BootstrapMethodInfo[] bootstrapMethods, int length)
+    {
+        if (bootstrapMethodIndexMap.length < length)
+        {
+            bootstrapMethodIndexMap = new int[length];
+        }
+
+        int counter = 0;
+
+        // Shift the used bootstrap methods together.
+        for (int index = 0; index < length; index++)
+        {
+            BootstrapMethodInfo bootstrapMethod = bootstrapMethods[index];
+
+            // Is the entry being used?
+            if (usageMarker.isUsed(bootstrapMethod))
+            {
+                // Remember the new index.
+                bootstrapMethodIndexMap[index] = counter;
+
+                // Shift the entry.
+                bootstrapMethods[counter++] = bootstrapMethod;
+            }
+            else
+            {
+                // Remember an invalid index.
+                bootstrapMethodIndexMap[index] = -1;
+            }
+        }
+
+        // Clear the remaining bootstrap methods.
+        Arrays.fill(bootstrapMethods, counter, length, null);
+
+        return counter;
+    }
+
+
+    /**
      * Removes all VisitorAccepter objects that are not marked as being used
      * from the given array.
      * @return the new number of VisitorAccepter objects.
@@ -441,9 +541,11 @@ implements   ClassVisitor,
         // Shift the used objects together.
         for (int index = 0; index < length; index++)
         {
-            if (usageMarker.isUsed(array[index]))
+            VisitorAccepter visitorAccepter = array[index];
+
+            if (usageMarker.isUsed(visitorAccepter))
             {
-                array[counter++] = array[index];
+                array[counter++] = visitorAccepter;
             }
         }
 

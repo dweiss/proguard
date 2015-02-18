@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -43,11 +43,16 @@ implements   ClassVisitor,
              ConstantVisitor,
              MemberVisitor,
              AttributeVisitor,
+             BootstrapMethodInfoVisitor,
              ExceptionInfoVisitor,
              InnerClassesInfoVisitor,
              StackMapFrameVisitor,
              VerificationTypeVisitor,
+             ParameterInfoVisitor,
+             LocalVariableInfoVisitor,
+             LocalVariableTypeInfoVisitor,
              AnnotationVisitor,
+             TypeAnnotationVisitor,
              ElementValueVisitor
 {
     // Implementations for ClassVisitor.
@@ -106,11 +111,27 @@ implements   ClassVisitor,
     }
 
 
+    public void visitBootstrapMethodsAttribute(Clazz clazz, BootstrapMethodsAttribute bootstrapMethodsAttribute)
+    {
+        clean(bootstrapMethodsAttribute);
+
+        bootstrapMethodsAttribute.bootstrapMethodEntriesAccept(clazz, this);
+    }
+
+
     public void visitInnerClassesAttribute(Clazz clazz, InnerClassesAttribute innerClassesAttribute)
     {
         clean(innerClassesAttribute);
 
         innerClassesAttribute.innerClassEntriesAccept(clazz, this);
+    }
+
+
+    public void visitMethodParametersAttribute(Clazz clazz, Method method, MethodParametersAttribute methodParametersAttribute)
+    {
+        clean(methodParametersAttribute);
+
+        methodParametersAttribute.parametersAccept(clazz, method, this);
     }
 
 
@@ -147,6 +168,22 @@ implements   ClassVisitor,
     }
 
 
+    public void visitLocalVariableTableAttribute(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableTableAttribute localVariableTableAttribute)
+    {
+        clean(localVariableTableAttribute);
+
+        localVariableTableAttribute.localVariablesAccept(clazz, method, codeAttribute, this);
+    }
+
+
+    public void visitLocalVariableTypeTableAttribute(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableTypeTableAttribute localVariableTypeTableAttribute)
+    {
+        clean(localVariableTypeTableAttribute);
+
+        localVariableTypeTableAttribute.localVariablesAccept(clazz, method, codeAttribute, this);
+    }
+
+
     public void visitAnyAnnotationsAttribute(Clazz clazz, AnnotationsAttribute annotationsAttribute)
     {
         clean(annotationsAttribute);
@@ -163,11 +200,27 @@ implements   ClassVisitor,
     }
 
 
+    public void visitAnyTypeAnnotationsAttribute(Clazz clazz, TypeAnnotationsAttribute typeAnnotationsAttribute)
+    {
+        clean(typeAnnotationsAttribute);
+
+        typeAnnotationsAttribute.typeAnnotationsAccept(clazz, this);
+    }
+
+
     public void visitAnnotationDefaultAttribute(Clazz clazz, Method method, AnnotationDefaultAttribute annotationDefaultAttribute)
     {
         clean(annotationDefaultAttribute);
 
         annotationDefaultAttribute.defaultValueAccept(clazz, this);
+    }
+
+
+    // Implementations for BootstrapMethodInfoVisitor.
+
+    public void visitBootstrapMethodInfo(Clazz clazz, BootstrapMethodInfo bootstrapMethodInfo)
+    {
+        clean(bootstrapMethodInfo);
     }
 
 
@@ -234,6 +287,30 @@ implements   ClassVisitor,
     }
 
 
+    // Implementations for ParameterInfoVisitor.
+
+    public void visitParameterInfo(Clazz clazz, Method method, int parameterIndex, ParameterInfo parameterInfo)
+    {
+        clean(parameterInfo);
+    }
+
+
+    // Implementations for LocalVariableInfoVisitor.
+
+    public void visitLocalVariableInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableInfo localVariableInfo)
+    {
+        clean(localVariableInfo);
+    }
+
+
+    // Implementations for LocalVariableTypeInfoVisitor.
+
+    public void visitLocalVariableTypeInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableTypeInfo localVariableTypeInfo)
+    {
+        clean(localVariableTypeInfo);
+    }
+
+
     // Implementations for AnnotationVisitor.
 
     public void visitAnnotation(Clazz clazz, Annotation annotation)
@@ -241,6 +318,18 @@ implements   ClassVisitor,
         clean(annotation);
 
         annotation.elementValuesAccept(clazz, this);
+    }
+
+
+    // Implementations for TypeAnnotationVisitor.
+
+    public void visitTypeAnnotation(Clazz clazz, TypeAnnotation typeAnnotation)
+    {
+        clean(typeAnnotation);
+
+        //typeAnnotation.targetInfoAccept(clazz, this);
+        //typeAnnotation.typePathInfosAccept(clazz, this);
+        typeAnnotation.elementValuesAccept(clazz, this);
     }
 
 

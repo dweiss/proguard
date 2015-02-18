@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,7 +25,6 @@ import proguard.classfile.util.*;
 import proguard.classfile.visitor.MemberVisitor;
 import proguard.evaluation.value.Value;
 import proguard.optimize.evaluation.StoringInvocationUnit;
-import proguard.optimize.info.ParameterUsageMarker;
 
 /**
  * This <code>MemberVisitor</code> delegates its visits to program methods
@@ -60,7 +59,7 @@ implements   MemberVisitor
         // All parameters of non-static methods are shifted by one in the local
         // variable frame.
         int firstParameterIndex =
-            (programMethod.getAccessFlags() & ClassConstants.INTERNAL_ACC_STATIC) != 0 ?
+            (programMethod.getAccessFlags() & ClassConstants.ACC_STATIC) != 0 ?
                 0 : 1;
 
         int parameterCount =

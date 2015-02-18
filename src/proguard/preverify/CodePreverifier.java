@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2011 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,9 +25,9 @@ import proguard.classfile.attribute.*;
 import proguard.classfile.attribute.preverification.*;
 import proguard.classfile.attribute.visitor.AttributeVisitor;
 import proguard.classfile.editor.*;
-import proguard.classfile.instruction.*;
+import proguard.classfile.instruction.InstructionConstants;
 import proguard.classfile.util.SimplifiedVisitor;
-import proguard.classfile.visitor.*;
+import proguard.classfile.visitor.ClassPrinter;
 import proguard.evaluation.*;
 import proguard.evaluation.value.*;
 import proguard.optimize.evaluation.*;
@@ -42,8 +42,7 @@ import java.util.*;
  */
 public class CodePreverifier
 extends      SimplifiedVisitor
-implements   MemberVisitor,
-             AttributeVisitor
+implements   AttributeVisitor
 {
     //*
     private static final boolean DEBUG = false;
@@ -54,8 +53,9 @@ implements   MemberVisitor,
 
     private final boolean microEdition;
 
-    private final PartialEvaluator partialEvaluator = new PartialEvaluator();
-    private final LivenessAnalyzer livenessAnalyzer = new LivenessAnalyzer(partialEvaluator);
+    private final PartialEvaluator    partialEvaluator    = new PartialEvaluator();
+    private final LivenessAnalyzer    livenessAnalyzer    = new LivenessAnalyzer(partialEvaluator);
+    private final CodeAttributeEditor codeAttributeEditor = new CodeAttributeEditor();
 
 
     /**
@@ -102,18 +102,27 @@ implements   MemberVisitor,
         ProgramClass  programClass  = (ProgramClass)clazz;
         ProgramMethod programMethod = (ProgramMethod)method;
 
+        int codeLength = codeAttribute.u4codeLength;
+
         // Evaluate the method.
         //partialEvaluator.visitCodeAttribute(clazz, method, codeAttribute);
         livenessAnalyzer.visitCodeAttribute(clazz, method, codeAttribute);
 
+        // We may have to remove unreachable code.
+        codeAttributeEditor.reset(codeLength);
+
         // Collect the stack map frames.
         List stackMapFrameList = new ArrayList();
 
-        for (int offset = 0; offset < codeAttribute.u4codeLength; offset++)
+        for (int offset = 0; offset < codeLength; offset++)
         {
             // Only store frames at the beginning of code blocks.
-            if (partialEvaluator.isTraced(offset) &&
-                partialEvaluator.isBranchOrExceptionTarget(offset))
+            if (!partialEvaluator.isTraced(offset))
+            {
+                // Mark the unreachable instruction for deletion.
+                codeAttributeEditor.deleteInstruction(offset);
+            }
+            else if (partialEvaluator.isBranchOrExceptionTarget(offset))
             {
                 // Convert the variable values to types.
                 VerificationType[] variableTypes =
@@ -149,7 +158,7 @@ implements   MemberVisitor,
                                                partialEvaluator.getVariablesBefore(0));
 
             // Special case: the <init> method.
-            if (method.getName(programClass).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT))
+            if (method.getName(programClass).equals(ClassConstants.METHOD_NAME_INIT))
             {
                 initialVariables[0] = VerificationTypeFactory.createUninitializedThisType();
             }
@@ -235,6 +244,9 @@ implements   MemberVisitor,
                 stackMapAttribute.accept(programClass, programMethod, codeAttribute, new ClassPrinter());
             }
         }
+
+        // Apply code modifications, deleting unreachable code.
+        codeAttributeEditor.visitCodeAttribute(clazz, method, codeAttribute);
     }
 
 
@@ -433,7 +445,7 @@ implements   MemberVisitor,
                                isDupOrSwap(codeAttribute.code[producerOffset]))
                         {
                             producers      = partialEvaluator.getStackBefore(producerOffset).getTopProducerValue(0).instructionOffsetValue();
-                            producerOffset = producers.instructionOffset(0);
+                            producerOffset = producers.minimumValue();
                         }
 
                         // Are we in an instance initialization method,
