@@ -518,6 +518,7 @@ public class ProGuard
         if (args.length == 0)
         {
             System.out.println(VERSION);
+            System.out.println("(fork with package renamer)");
             System.out.println("Usage: java proguard.ProGuard [options ...]");
             System.exit(1);
         }
