@@ -94,9 +94,8 @@ public class BranchInstruction extends Instruction
         }
         else
         {
-            // Can we provide a wide branch?
-            if      (opcode == InstructionConstants.OP_GOTO ||
-                     opcode == InstructionConstants.OP_GOTO_W)
+            // Should we replace the ordinary branch by a wide branch?
+            if      (opcode == InstructionConstants.OP_GOTO)
             {
                 opcode = InstructionConstants.OP_GOTO_W;
             }
