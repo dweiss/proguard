@@ -181,8 +181,8 @@ implements ClassVisitor,
 
 
     /**
-     * This MemberVisitor marks ProgramMethod objects of default
-     * implementations that may be present in interface classes.
+     * This MemberVisitor marks ProgramField and ProgramMethod objects that
+     * have already been marked as possibly used.
      */
     private class MyDefaultMethodUsageMarker
     extends       SimplifiedVisitor
@@ -380,8 +380,6 @@ implements ClassVisitor,
      */
     protected void markMethodHierarchy(Clazz clazz, Method method)
     {
-        // Only visit the hierarchy if the method is not private, static, or
-        // an initializer.
         int accessFlags = method.getAccessFlags();
         if ((accessFlags &
              (ClassConstants.ACC_PRIVATE |
@@ -397,13 +395,12 @@ implements ClassVisitor,
                 ((accessFlags & ClassConstants.ACC_PUBLIC) == 0 ? 0 :
                      ClassConstants.ACC_ABSTRACT);
 
-            // Mark default implementations in interfaces down the hierarchy,
-            // if this is an interface itself.
+            // Mark default implementations in interfaces down the hierarchy.
             // TODO: This may be premature if there aren't any concrete implementing classes.
-            clazz.accept(new ClassAccessFilter(ClassConstants.ACC_INTERFACE, 0,
+            clazz.accept(new ClassAccessFilter(ClassConstants.ACC_ABSTRACT, 0,
                          new ClassHierarchyTraveler(false, false, false, true,
                          new ProgramClassFilter(
-                         new ClassAccessFilter(ClassConstants.ACC_INTERFACE, 0,
+                         new ClassAccessFilter(ClassConstants.ACC_ABSTRACT, 0,
                          new NamedMethodVisitor(method.getName(clazz),
                                                 method.getDescriptor(clazz),
                          new MemberAccessFilter(0, requiredUnsetAccessFlags,

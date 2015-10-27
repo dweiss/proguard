@@ -7,10 +7,10 @@
     <parent>
         <groupId>net.sf.proguard</groupId>
         <artifactId>proguard-parent</artifactId>
-        <version>5.2.1</version>
+        <version>5.2beta3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>proguard-retrace</artifactId>
+    <artifactId>proguard-gui</artifactId>
     <name>[${project.groupId}] ${project.artifactId}</name>
 
     <build>
@@ -20,7 +20,7 @@
                 <artifactId>maven-source-plugin</artifactId>
                 <configuration>
                     <includes>
-                        <include>proguard/retrace/**</include>
+                        <include>proguard/gui/**</include>
                     </includes>
                 </configuration>
             </plugin>
@@ -28,14 +28,14 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <includes>
-                        <include>proguard/retrace/**</include>
+                        <include>proguard/gui/**</include>
                     </includes>
                 </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
-                    <subpackages>proguard.retrace</subpackages>
+                    <subpackages>proguard.gui</subpackages>
                 </configuration>
             </plugin>
             <plugin>
@@ -44,17 +44,34 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>proguard.retrace.ReTrace</mainClass>
+                            <mainClass>proguard.gui.ProGuardGUI</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
             </plugin>
         </plugins>
+        <resources>
+            <resource>
+                <directory>../../../src</directory>
+                <includes>
+                   <include>proguard/gui/**</include>
+                </includes>
+                <excludes>
+                   <exclude>**/*.java</exclude>
+                   <exclude>MANIFEST.MF</exclude>
+                </excludes>
+            </resource>
+        </resources>
     </build>
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proguard-base</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>proguard-retrace</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

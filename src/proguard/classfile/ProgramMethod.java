@@ -32,12 +32,10 @@ import proguard.classfile.visitor.*;
 public class ProgramMethod extends ProgramMember implements Method
 {
     /**
-     * An extra field containing all the classes referenced in the
-     * descriptor string. This field is filled out by the {@link
-     * proguard.classfile.util.ClassReferenceInitializer ClassReferenceInitializer}.
-     * The size of the array is the number of classes in the descriptor.
-     * Primitive types and arrays of primitive types are ignored.
-     * Unknown classes are represented as null values.
+     * An extra field pointing to the Clazz objects referenced in the
+     * descriptor string. This field is filled out by the <code>{@link
+     * proguard.classfile.util.ClassReferenceInitializer ClassReferenceInitializer}</code>.
+     * References to primitive types are ignored.
      */
     public Clazz[] referencedClasses;
 

@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project
     xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>net.sf.proguard</groupId>
         <artifactId>proguard-parent</artifactId>
-        <version>5.2.1</version>
+        <version>5.2beta3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>proguard-anttask</artifactId>
+    <artifactId>proguard-wtk-plugin</artifactId>
     <name>[${project.groupId}] ${project.artifactId}</name>
 
     <build>
@@ -20,7 +20,7 @@
                 <artifactId>maven-source-plugin</artifactId>
                 <configuration>
                     <includes>
-                        <include>proguard/ant/**</include>
+                        <include>proguard/wtk/**</include>
                     </includes>
                 </configuration>
             </plugin>
@@ -28,7 +28,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <includes>
-                        <include>proguard/ant/**</include>
+                        <include>proguard/wtk/**</include>
                     </includes>
                 </configuration>
             </plugin>
@@ -45,7 +45,7 @@
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
-                    <subpackages>proguard.ant</subpackages>
+                    <subpackages>proguard.wtk</subpackages>
                 </configuration>
             </plugin>
         </plugins>
@@ -53,7 +53,7 @@
             <resource>
                 <directory>../../../src</directory>
                 <includes>
-                   <include>proguard/ant/**</include>
+                   <include>proguard/wtk/**</include>
                 </includes>
                 <excludes>
                    <exclude>**/*.java</exclude>
@@ -69,10 +69,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.ant</groupId>
-            <artifactId>ant</artifactId>
-            <version>1.7.0</version>
-            <scope>provided</scope>
+            <groupId>wtklib</groupId>
+            <artifactId>kenv</artifactId>
+            <version>2.2</version>
+            <scope>system</scope>
+            <systemPath>${wtk.home}/wtklib/kenv.zip</systemPath>
         </dependency>
     </dependencies>
 </project>

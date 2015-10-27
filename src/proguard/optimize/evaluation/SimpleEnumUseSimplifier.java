@@ -483,8 +483,10 @@ implements   AttributeVisitor,
 
             if (referencedClasses != null)
             {
-                Clazz returnedClass =
-                    referencedClasses[referencedClasses.length - 1];
+                int returnedClassIndex =
+                    new DescriptorClassEnumeration(descriptor).classCount() - 1;
+
+                Clazz returnedClass = referencedClasses[returnedClassIndex];
 
                 return isSimpleEnum(returnedClass);
             }
