@@ -915,10 +915,10 @@ public class Optimizer
             // Perform the peephole optimisations.
             programClassPool.classesAccept(
                 new AllMethodVisitor(
-                new AllAttributeVisitor(
-                new PeepholeOptimizer(branchTargetFinder, codeAttributeEditor,
-                new MultiInstructionVisitor(
-                peepholeOptimizationsArray)))));
+                    new AllAttributeVisitor(
+                        new PeepholeOptimizer(branchTargetFinder, codeAttributeEditor,
+                                              new MultiInstructionVisitor(
+                                                  peepholeOptimizationsArray)))));
         }
 
         if (codeRemovalException)

@@ -635,10 +635,12 @@ implements   ClassVisitor,
 
             if (referencedClasses != null)
             {
-                Clazz referencedClass =
-                    referencedClasses[referencedClasses.length - 1];
+                int returnedClassIndex =
+                    new DescriptorClassEnumeration(descriptor).classCount() - 1;
 
-                return isSimpleEnum(referencedClass);
+                Clazz returnedClass = referencedClasses[returnedClassIndex];
+
+                return isSimpleEnum(returnedClass);
             }
         }
 
