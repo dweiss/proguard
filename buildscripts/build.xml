@@ -21,7 +21,7 @@
   <target name = "options" depends = "anttask,wtkplugin"/>
   
   <presetdef name="javac">
-    <javac debug="true" target="1.5" source="1.5"
+    <javac debug="true" target="1.6" source="1.6"
       encoding="UTF-8" includeantruntime="false" optimize="true" />
   </presetdef>
 
