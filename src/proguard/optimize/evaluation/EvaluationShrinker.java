@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,7 @@ package proguard.optimize.evaluation;
 
 import proguard.classfile.*;
 import proguard.classfile.attribute.*;
-import proguard.classfile.attribute.visitor.AttributeVisitor;
+import proguard.classfile.attribute.visitor.*;
 import proguard.classfile.constant.RefConstant;
 import proguard.classfile.constant.visitor.ConstantVisitor;
 import proguard.classfile.editor.CodeAttributeEditor;
@@ -44,7 +44,8 @@ import java.util.Arrays;
  */
 public class EvaluationShrinker
 extends      SimplifiedVisitor
-implements   AttributeVisitor
+implements   AttributeVisitor,
+             ExceptionInfoVisitor
 {
     //*
     private static final boolean DEBUG_RESULTS  = false;
@@ -478,6 +479,9 @@ implements   AttributeVisitor
             }
             while (offset < codeLength);
         }
+
+        // Clear exception handlers that are not necessary.
+        codeAttribute.exceptionsAccept(clazz, method, this);
 
         // Apply all accumulated changes to the code.
         codeAttributeEditor.visitCodeAttribute(clazz, method, codeAttribute);
@@ -1410,21 +1414,42 @@ implements   AttributeVisitor
 
         private int fixedSwap(int instructionOffset, int topBefore, int topAfter)
         {
-            boolean stackEntryPresent0 = isStackEntryPresentBefore(instructionOffset, topBefore - 0);
-            boolean stackEntryPresent1 = isStackEntryPresentBefore(instructionOffset, topBefore - 1);
+            boolean stackEntryPresent0 = isStackEntryPresentBefore(instructionOffset, topBefore - 0); // B
+            boolean stackEntryPresent1 = isStackEntryPresentBefore(instructionOffset, topBefore - 1); // A
 
-            boolean stackEntryNecessary0 = isStackEntryNecessaryAfter(instructionOffset, topAfter - 0);
-            boolean stackEntryNecessary1 = isStackEntryNecessaryAfter(instructionOffset, topAfter - 1);
+            boolean stackEntryNecessary0 = isStackEntryNecessaryAfter(instructionOffset, topAfter - 0); // A
+            boolean stackEntryNecessary1 = isStackEntryNecessaryAfter(instructionOffset, topAfter - 1); // B
 
             // Figure out which stack entries should be moved
             // or removed.
             return
                 stackEntryNecessary0 ?
                     stackEntryNecessary1 ? SWAP   : // ...AB -> ...BA
+
                     stackEntryPresent0   ? POP    : // ...AB -> ...A
                                            NOP    : // ...A  -> ...A
-                stackEntryPresent1       ? POP_X1 : // ...AB -> ...B
-                                           NOP;     // ...B -> ...B
+                stackEntryNecessary1 ?
+                    stackEntryPresent1   ? POP_X1 : // ...AB -> ...B
+                                           NOP    : // ...B  -> ...B
+                stackEntryPresent1 ?
+                    stackEntryPresent0   ? POP2   : // ...AB -> ...
+                                           POP    : // ...B  -> ...
+
+                    stackEntryPresent0   ? POP    : // ...A  -> ...
+                                           NOP;     // ...   -> ...
+        }
+    }
+
+
+    // Implementations for ExceptionInfoVisitor.
+
+    public void visitExceptionInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, ExceptionInfo exceptionInfo)
+    {
+        // Is the catch handler necessary?
+        if (!partialEvaluator.isTraced(exceptionInfo.u2handlerPC))
+        {
+            // Make the code block empty, so the code editor can remove it.
+            exceptionInfo.u2endPC = exceptionInfo.u2startPC;
         }
     }
 

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -177,6 +177,15 @@ implements   ClassVisitor,
                     lineNumberInfo.u2lineNumber += currentLineNumberShift;
                 }
 
+                // TODO: There appear to be cases where the stack is empty at this point, so we've added a check.
+                else if (enclosingLineNumbers.isEmpty())
+                {
+                    if (DEBUG)
+                    {
+                        System.err.println("Problem linearizing line numbers for optimized code ("+clazz.getName()+"."+method.getName(clazz)+")");
+                    }
+                }
+
                 // Are we exiting an inlined block?
                 else
                 {
@@ -197,7 +206,7 @@ implements   ClassVisitor,
                         System.out.print(" (exit to shift "+currentLineNumberShift+")");
                     }
                 }
-                }
+            }
             else
             {
                 if (DEBUG)

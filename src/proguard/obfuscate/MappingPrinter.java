@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -226,7 +226,8 @@ implements   ClassVisitor,
                                               enclosingLineNumbers,
                                               obfuscatedMethodName);
                 }
-                else
+                // TODO: There appear to be cases where the stack is empty at this point, so we've added a check.
+                else if (!enclosingLineNumbers.isEmpty())
                 {
                     // We're exiting an inlined block.
                     // Pop its enclosing line number.

@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -94,8 +94,9 @@ public class BranchInstruction extends Instruction
         }
         else
         {
-            // Should we replace the ordinary branch by a wide branch?
-            if      (opcode == InstructionConstants.OP_GOTO)
+            // Can we provide a wide branch?
+            if      (opcode == InstructionConstants.OP_GOTO ||
+                     opcode == InstructionConstants.OP_GOTO_W)
             {
                 opcode = InstructionConstants.OP_GOTO_W;
             }
