@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -181,8 +181,8 @@ implements ClassVisitor,
 
 
     /**
-     * This MemberVisitor marks ProgramField and ProgramMethod objects that
-     * have already been marked as possibly used.
+     * This MemberVisitor marks ProgramMethod objects of default
+     * implementations that may be present in interface classes.
      */
     private class MyDefaultMethodUsageMarker
     extends       SimplifiedVisitor
@@ -380,6 +380,8 @@ implements ClassVisitor,
      */
     protected void markMethodHierarchy(Clazz clazz, Method method)
     {
+        // Only visit the hierarchy if the method is not private, static, or
+        // an initializer.
         int accessFlags = method.getAccessFlags();
         if ((accessFlags &
              (ClassConstants.ACC_PRIVATE |
@@ -395,12 +397,13 @@ implements ClassVisitor,
                 ((accessFlags & ClassConstants.ACC_PUBLIC) == 0 ? 0 :
                      ClassConstants.ACC_ABSTRACT);
 
-            // Mark default implementations in interfaces down the hierarchy.
+            // Mark default implementations in interfaces down the hierarchy,
+            // if this is an interface itself.
             // TODO: This may be premature if there aren't any concrete implementing classes.
-            clazz.accept(new ClassAccessFilter(ClassConstants.ACC_ABSTRACT, 0,
+            clazz.accept(new ClassAccessFilter(ClassConstants.ACC_INTERFACE, 0,
                          new ClassHierarchyTraveler(false, false, false, true,
                          new ProgramClassFilter(
-                         new ClassAccessFilter(ClassConstants.ACC_ABSTRACT, 0,
+                         new ClassAccessFilter(ClassConstants.ACC_INTERFACE, 0,
                          new NamedMethodVisitor(method.getName(clazz),
                                                 method.getDescriptor(clazz),
                          new MemberAccessFilter(0, requiredUnsetAccessFlags,
@@ -928,7 +931,10 @@ implements ClassVisitor,
 
     public void visitParameterInfo(Clazz clazz, Method method, int parameterIndex, ParameterInfo parameterInfo)
     {
-        markConstant(clazz, parameterInfo.u2nameIndex);
+        if (parameterInfo.u2nameIndex != 0)
+        {
+            markConstant(clazz, parameterInfo.u2nameIndex);
+        }
     }
 
 
