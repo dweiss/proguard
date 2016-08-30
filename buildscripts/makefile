@@ -4,17 +4,17 @@ ANT_HOME    = /usr/local/java/ant
 GRADLE_HOME = /usr/local/java/gradle
 WTK_HOME    = /usr/local/java/wtk
 
-PROGUARD_HOME := $(subst ./..,..,$(subst /build/..,/,$(dir $(MAKEFILE_LIST))..))
+PROGUARD_HOME := $(subst ./..,..,$(subst /buildscripts/..,/,$(dir $(MAKEFILE_LIST))..))
 SRC     = $(PROGUARD_HOME)/src
 CLASSES = $(PROGUARD_HOME)/classes
 LIB     = $(PROGUARD_HOME)/lib
 
 ANT_JAR     = $(ANT_HOME)/lib/ant.jar
-GRADLE_JARS = $(GRADLE_HOME)/lib/plugins/gradle-plugins-2.2.1.jar \
-              $(GRADLE_HOME)/lib/gradle-base-services-2.2.1.jar \
-              $(GRADLE_HOME)/lib/gradle-base-services-groovy-2.2.1.jar \
-              $(GRADLE_HOME)/lib/gradle-core-2.2.1.jar \
-              $(GRADLE_HOME)/lib/groovy-all-2.3.6.jar
+GRADLE_JARS = $(GRADLE_HOME)/lib/plugins/gradle-plugins-2.12.jar \
+              $(GRADLE_HOME)/lib/gradle-base-services-2.12.jar \
+              $(GRADLE_HOME)/lib/gradle-base-services-groovy-2.12.jar \
+              $(GRADLE_HOME)/lib/gradle-core-2.12.jar \
+              $(GRADLE_HOME)/lib/groovy-all-2.4.4.jar
 WTK_JAR     = $(WTK_HOME)/wtklib/kenv.zip
 
 NOTHING:=

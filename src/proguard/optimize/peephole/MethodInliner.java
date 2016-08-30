@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2015 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -49,8 +49,8 @@ implements   AttributeVisitor,
              MemberVisitor,
              LineNumberInfoVisitor
 {
-    static final int    INLINED_METHOD_END_LINE_NUMBER = -1;
-    static final String INLINED_METHOD_END_SOURCE      = "end";
+    static final int METHOD_DUMMY_START_LINE_NUMBER = 0;
+    static final int INLINED_METHOD_END_LINE_NUMBER = -1;
 
     private static final int MAXIMUM_INLINED_CODE_LENGTH       = Integer.parseInt(System.getProperty("maximum.inlined.code.length",      "8"));
     private static final int MAXIMUM_RESULTING_CODE_LENGTH_JSE = Integer.parseInt(System.getProperty("maximum.resulting.code.length", "7000"));
@@ -395,8 +395,8 @@ implements   AttributeVisitor,
             minimumLineNumberIndex =
                 codeAttributeComposer.insertLineNumber(minimumLineNumberIndex,
                     new ExtendedLineNumberInfo(0,
-                                               0,
-                                               source));
+                                               METHOD_DUMMY_START_LINE_NUMBER,
+                                               source)) + 1;
         }
 
         // Add a marker at the end of an inlined method.
@@ -407,14 +407,14 @@ implements   AttributeVisitor,
             String source =
                 clazz.getName()             + '.' +
                 method.getName(clazz)       +
-                method.getDescriptor(clazz) + ':' +
-                INLINED_METHOD_END_SOURCE;
+                method.getDescriptor(clazz) +
+                ":0:0";
 
             minimumLineNumberIndex =
                 codeAttributeComposer.insertLineNumber(minimumLineNumberIndex,
                     new ExtendedLineNumberInfo(codeAttribute.u4codeLength,
                                                INLINED_METHOD_END_LINE_NUMBER,
-                                               source));
+                                               source)) + 1;
         }
 
         codeAttributeComposer.endCodeFragment();
@@ -504,7 +504,7 @@ implements   AttributeVisitor,
                 emptyInvokingStack =
                     !inlining &&
                     stackSizeComputer.isReachable(offset) &&
-                    stackSizeComputer.getStackSize(offset) == 0;
+                    stackSizeComputer.getStackSizeAfter(offset) == 0;
 
                 variableOffset += codeAttribute.u2maxLocals;
 
@@ -622,7 +622,10 @@ implements   AttributeVisitor,
             (!CatchExceptionMarker.catchesExceptions(programMethod) ||
              emptyInvokingStack)                                                                  &&
 
-            // Only inline the method if it comes from the a class with at most
+            // Only inline the method if it always returns with an empty
+            // stack.
+            !NonEmptyStackReturnMarker.returnsWithNonEmptyStack(programMethod)                    &&
+
             // a subset of the initialized superclasses.
             ((accessFlags & ClassConstants.ACC_STATIC) == 0 ||
              programClass.equals(targetClass)                        ||
@@ -657,19 +660,37 @@ implements   AttributeVisitor,
 
     public void visitLineNumberInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LineNumberInfo lineNumberInfo)
     {
-        String newSource = lineNumberInfo.getSource() != null ?
-            lineNumberInfo.getSource() :
-            source;
+        try
+        {
+            String newSource = lineNumberInfo.getSource() != null ?
+                lineNumberInfo.getSource() :
+                source;
 
-        LineNumberInfo newLineNumberInfo = newSource != null ?
-            new ExtendedLineNumberInfo(lineNumberInfo.u2startPC,
-                                       lineNumberInfo.u2lineNumber,
-                                       newSource) :
-            new LineNumberInfo(lineNumberInfo.u2startPC,
-                               lineNumberInfo.u2lineNumber);
+            LineNumberInfo newLineNumberInfo = newSource != null ?
+                new ExtendedLineNumberInfo(lineNumberInfo.u2startPC,
+                                           lineNumberInfo.u2lineNumber,
+                                           newSource) :
+                new LineNumberInfo(lineNumberInfo.u2startPC,
+                                   lineNumberInfo.u2lineNumber);
 
-        minimumLineNumberIndex =
-            codeAttributeComposer.insertLineNumber(minimumLineNumberIndex, newLineNumberInfo) + 1;
+            minimumLineNumberIndex =
+                codeAttributeComposer.insertLineNumber(minimumLineNumberIndex, newLineNumberInfo) + 1;
+        }
+        catch (IllegalArgumentException e)
+        {
+            if (DEBUG)
+            {
+                System.err.println("Invalid line number while inlining method:");
+                System.err.println("  Target class   = ["+targetClass.getName()+"]");
+                System.err.println("  Target method  = ["+targetMethod.getName(targetClass)+targetMethod.getDescriptor(targetClass)+"]");
+                if (inlining)
+                {
+                    System.err.println("  Inlined class  = ["+clazz.getName()+"]");
+                    System.err.println("  Inlined method = ["+method.getName(clazz)+method.getDescriptor(clazz)+"]");
+                }
+                System.err.println("  Exception      = ["+e.getClass().getName()+"] ("+e.getMessage()+")");
+            }
+        }
     }
 
 
