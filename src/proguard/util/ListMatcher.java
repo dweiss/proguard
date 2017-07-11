@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2017 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,7 @@ package proguard.util;
  *
  * @author Eric Lafortune
  */
-public class ListMatcher implements StringMatcher
+public class ListMatcher extends StringMatcher
 {
     private final StringMatcher[] matchers;
     private final boolean[]       negate;
@@ -49,13 +49,13 @@ public class ListMatcher implements StringMatcher
 
     // Implementations for StringMatcher.
 
-    public boolean matches(String string)
+    protected boolean matches(String string, int offset, int length)
     {
         // Check the list of matchers.
         for (int index = 0; index < matchers.length; index++)
         {
             StringMatcher matcher = matchers[index];
-            if (matcher.matches(string))
+            if (matcher.matches(string, offset, length))
             {
                 return negate == null ||
                        !negate[index];

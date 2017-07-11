@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2017 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -138,10 +138,15 @@ implements   AttributeVisitor,
                 int invokeinterfaceConstant =
                     (ClassUtil.internalMethodParameterSize(referencedMethod.getDescriptor(referencedMethodClass), false)) << 8;
 
+                if (opcode == InstructionConstants.OP_INVOKESPECIAL &&
+                    (referencedMethod.getAccessFlags() & ClassConstants.ACC_ABSTRACT) == 0)
+                {
+                    // Explicit calls to default interface methods *must* be preserved.
+                }
                 // But is it not an interface invocation, or is the parameter
                 // size incorrect?
-                if (opcode != InstructionConstants.OP_INVOKEINTERFACE ||
-                    constantInstruction.constant != invokeinterfaceConstant)
+                else if (opcode != InstructionConstants.OP_INVOKEINTERFACE ||
+                         constantInstruction.constant != invokeinterfaceConstant)
                 {
                     // Fix the parameter size of the interface invocation.
                     Instruction replacementInstruction =
@@ -162,11 +167,13 @@ implements   AttributeVisitor,
             // an interface method.
             else
             {
-                // But is it not a virtual invocation (or a special invocation,
-                // but not a super call)?
+                // But is it not a virtual invocation?
                 if (opcode != InstructionConstants.OP_INVOKEVIRTUAL &&
-                    (opcode != InstructionConstants.OP_INVOKESPECIAL ||
-                     clazz.equals(referencedClass) ||
+                    (// Replace any non-invokespecial.
+                     opcode != InstructionConstants.OP_INVOKESPECIAL ||
+                     // For invokespecial, replace invocations from the same
+                     // class, and invocations to non-superclasses.
+                     clazz.equals(referencedClass)                   ||
                      !clazz.extends_(referencedClass)))
                 {
                     // Replace the invocation by an invokevirtual instruction.
@@ -227,16 +234,9 @@ implements   AttributeVisitor,
                        ConstantInstruction constantInstruction,
                        Instruction         replacementInstruction)
     {
-        System.out.println("MethodInvocationFixer:");
-        System.out.println("  Class       = "+clazz.getName());
-        System.out.println("  Method      = "+method.getName(clazz)+method.getDescriptor(clazz));
-        System.out.println("  Instruction = "+constantInstruction.toString(offset));
-        System.out.println("  -> Class    = "+referencedClass);
-        System.out.println("     Method   = "+referencedMethod);
-        if ((referencedClass.getAccessFlags() & ClassConstants.ACC_INTERFACE) != 0)
-        {
-            System.out.println("     Parameter size   = "+(ClassUtil.internalMethodParameterSize(referencedMethod.getDescriptor(referencedMethodClass), false)));
-        }
-        System.out.println("  Replacement instruction = "+replacementInstruction.toString(offset));
+        System.out.println("MethodInvocationFixer ["+clazz.getName()+"."+
+                           method.getName(clazz)+method.getDescriptor(clazz)+"] "+
+                           constantInstruction.toString(offset)+" -> "+
+                           replacementInstruction.toString(offset));
     }
 }

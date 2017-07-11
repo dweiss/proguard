@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2017 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -439,7 +439,7 @@ public class ClassUtil
      * Returns whether the given method name refers to a class initializer or
      * an instance initializer.
      * @param internalMethodName the internal method name,
-     *                           e.g. "<code>&ltclinit&gt;</code>".
+     *                           e.g. "<code>&lt;clinit&gt;</code>".
      * @return whether the method name refers to an initializer,
      *                           e.g. <code>true</code>.
      */
