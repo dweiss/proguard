@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2016 Eric Lafortune @ GuardSquare
+ * Copyright (c) 2002-2017 Eric Lafortune @ GuardSquare
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,7 @@ import java.util.*;
  */
 public class ReTrace
 {
-    private static final String USAGE          = "Usage: java proguard.ReTrace [-regex <regex>] [-verbose] <mapping_file> [<stacktrace_file>]";
+    private static final String USAGE          = "Usage: java proguard.retrace.ReTrace [-regex <regex>] [-verbose] <mapping_file> [<stacktrace_file>]";
     private static final String REGEX_OPTION   = "-regex";
     private static final String VERBOSE_OPTION = "-verbose";
 
