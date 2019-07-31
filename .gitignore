@@ -4,3 +4,7 @@ tmp
 *.log
 *.patch
 classes/
+
+.hg/**
+.hgtags
+out/
