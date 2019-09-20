@@ -254,8 +254,6 @@ public class Obfuscator
                                           nameFactory);
         }
 
-        WarningPrinter warningPrinter = new WarningPrinter(err, configuration.warn);
-
         // Maintain a map of names to avoid [descriptor - new name - old name].
         Map descriptorMap = new HashMap();
 
