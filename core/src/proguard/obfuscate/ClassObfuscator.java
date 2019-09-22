@@ -99,12 +99,14 @@ implements   ClassVisitor,
                            ClassPool             libraryClassPool,
                            DictionaryNameFactory classNameFactory,
                            DictionaryNameFactory packageNameFactory,
+                           Set                   classNamesToAvoid,
                            boolean               useMixedCaseClassNames,
                            List                  keepPackageNames,
                            String                flattenPackageHierarchy,
                            String                repackageClasses,
                            boolean               allowAccessModification)
     {
+        this.classNamesToAvoid.addAll(classNamesToAvoid);
         this.classNameFactory   = classNameFactory;
         this.packageNameFactory = packageNameFactory;
 
@@ -162,6 +164,8 @@ implements   ClassVisitor,
             newClassName = newClassName != null && numericClassName ?
                 generateUniqueNumericClassName(newPackagePrefix) :
                 generateUniqueClassName(newPackagePrefix);
+                
+                System.out.println(programClass + " => " + newClassName);
 
             setNewClassName(programClass, newClassName);
         }

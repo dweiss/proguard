@@ -172,11 +172,15 @@ public class Obfuscator
 
         // Warning printer and keeper.
         WarningPrinter warningPrinter = new WarningPrinter(err, configuration.warn);
+
+        MappingTargetClassNameCollector targetClassCollector =
+            new MappingTargetClassNameCollector(warningPrinter);
+
         MappingProcessor keeper =
             new MultiMappingProcessor(new MappingProcessor[]
             {
                 new MappingKeeper(programClassPool, warningPrinter),
-                new MappingKeeper(libraryClassPool, null),
+                new MappingKeeper(libraryClassPool, null)
             });
 
         // Apply package renaming rules.
@@ -200,7 +204,10 @@ public class Obfuscator
 
             MappingReader reader = new MappingReader(configuration.applyMapping);
 
-            reader.pump(keeper);
+            reader.pump(new MultiMappingProcessor(new MappingProcessor [] {
+                keeper,
+                targetClassCollector
+            }));
 
             // Print out a summary of the warnings if necessary.
             int warningCount = warningPrinter.getWarningCount();
@@ -224,7 +231,7 @@ public class Obfuscator
                 }
             }
         }
-
+        
         // Come up with new names for all classes.
         DictionaryNameFactory classNameFactory = configuration.classObfuscationDictionary != null ?
             new DictionaryNameFactory(configuration.classObfuscationDictionary, null) :
@@ -239,6 +246,7 @@ public class Obfuscator
                                 libraryClassPool,
                                 classNameFactory,
                                 packageNameFactory,
+                                targetClassCollector.getReservedClassNames(),
                                 configuration.useMixedCaseClassNames,
                                 configuration.keepPackageNames,
                                 configuration.flattenPackageHierarchy,
