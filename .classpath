@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" path="examples/annotations/examples"/>
-	<classpathentry kind="src" path="examples/annotations/src"/>
-	<classpathentry excluding="proguard/wtk/ProGuardObfuscator.java|proguard/gradle/|proguard/ant/" kind="src" path="src"/>
-	<classpathentry kind="lib" path="examples/annotations/lib/annotations.jar"/>
+	<classpathentry kind="src" path="core/src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/ANT_HOME"/>
+	<classpathentry kind="lib" path="lib/gson-2.8.5.jar"/>
 	<classpathentry kind="output" path="tmp/eclipse"/>
 </classpath>
