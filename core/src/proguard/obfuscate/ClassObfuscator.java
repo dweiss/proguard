@@ -164,8 +164,6 @@ implements   ClassVisitor,
             newClassName = newClassName != null && numericClassName ?
                 generateUniqueNumericClassName(newPackagePrefix) :
                 generateUniqueClassName(newPackagePrefix);
-                
-                System.out.println(programClass + " => " + newClassName);
 
             setNewClassName(programClass, newClassName);
         }
