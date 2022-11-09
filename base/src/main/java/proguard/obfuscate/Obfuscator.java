@@ -199,6 +199,26 @@ public class Obfuscator implements Pass
         // configuration may rely on annotations.
         appView.programClassPool.classesAccept(new AttributeShrinker());
 
+        // Warning printer and keeper.
+        WarningLogger warningPrinter = new WarningLogger(logger, configuration.warn);
+
+        MappingTargetClassNameCollector targetClassCollector =
+            new MappingTargetClassNameCollector(warningPrinter);
+
+        MappingProcessor keeper =
+            new MultiMappingProcessor(new MappingProcessor[]
+                {
+                    new MappingKeeper(appView.programClassPool, warningPrinter),
+                    new MappingKeeper(appView.libraryClassPool, null)
+                });
+
+        // Apply package renaming rules.
+        if (configuration.renamePackages != null && configuration.renamePackages.size() > 0) {
+            out.println("Package renaming [" + configuration.renamePackages + "]");
+            appView.programClassPool.classesAccept(new PackageRenamer(keeper, configuration));
+        }
+
+
         if (configuration.keepKotlinMetadata)
         {
             appView.programClassPool.classesAccept(
@@ -212,17 +232,12 @@ public class Obfuscator implements Pass
         {
             logger.info("Applying mapping from [{}]...", PrintWriterUtil.fileName(configuration.applyMapping));
 
-            WarningPrinter warningPrinter = new WarningLogger(logger, configuration.warn);
-
             MappingReader reader = new MappingReader(configuration.applyMapping);
 
-            MappingProcessor keeper =
-                new MultiMappingProcessor(new MappingProcessor[]
-                {
-                    new MappingKeeper(appView.programClassPool, warningPrinter),
-                    new MappingKeeper(appView.libraryClassPool, null),
-                });
-
+            reader.pump(new MultiMappingProcessor(new MappingProcessor [] {
+                            keeper,
+                            targetClassCollector
+                        }));
             reader.pump(keeper);
 
             // Print out a summary of the warnings if necessary.
@@ -262,6 +277,7 @@ public class Obfuscator implements Pass
                                 appView.libraryClassPool,
                                 classNameFactory,
                                 packageNameFactory,
+                                targetClassCollector.getReservedClassNames(),
                                 configuration.useMixedCaseClassNames,
                                 configuration.keepPackageNames,
                                 configuration.flattenPackageHierarchy,
@@ -277,8 +293,6 @@ public class Obfuscator implements Pass
                 new DictionaryNameFactory(configuration.obfuscationDictionary,
                                           nameFactory);
         }
-
-        WarningPrinter warningPrinter = new WarningLogger(logger, configuration.warn);
 
         // Maintain a map of names to avoid [descriptor - new name - old name].
         Map descriptorMap = new HashMap();

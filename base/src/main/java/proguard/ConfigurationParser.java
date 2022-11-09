@@ -22,6 +22,7 @@ package proguard;
 
 import proguard.classfile.*;
 import proguard.classfile.util.ClassUtil;
+import proguard.obfuscate.PackageRenameRule;
 import proguard.util.*;
 
 import java.io.*;
@@ -163,6 +164,8 @@ public class ConfigurationParser implements AutoCloseable
             else if (ConfigurationConstants.ZIP_ALIGN_OPTION                                 .startsWith(nextWord)) configuration.zipAlign                              = parseIntegerArgument();
             else if (ConfigurationConstants.FORCE_PROCESSING_OPTION                          .startsWith(nextWord)) configuration.lastModified                          = parseNoArgument(Long.MAX_VALUE);
 
+            else if (ConfigurationConstants.RENAME_PACKAGE_OPTION                            .startsWith(nextWord)) configuration.renamePackages                        = parsePackageRenameRule(configuration.renamePackages);
+
             else if (ConfigurationConstants.IF_OPTION                                        .startsWith(nextWord)) configuration.keep                                  = parseIfCondition(configuration.keep);
             else if (ConfigurationConstants.KEEP_OPTION                                      .startsWith(nextWord)) configuration.keep                                  = parseKeepClassSpecificationArguments(configuration.keep, true,  true,  false, false, false, null);
             else if (ConfigurationConstants.KEEP_CLASS_MEMBERS_OPTION                        .startsWith(nextWord)) configuration.keep                                  = parseKeepClassSpecificationArguments(configuration.keep, false, true,  false, false, false, null);
@@ -247,6 +250,46 @@ public class ConfigurationParser implements AutoCloseable
         {
             reader.close();
         }
+    }
+
+
+    /**
+     * Parses a single package rename rule.
+     */
+    private List<PackageRenameRule> parsePackageRenameRule(List<PackageRenameRule> list) throws IOException, ParseException
+    {
+        if (list == null)
+        {
+            list = new ArrayList<>();
+        }
+
+        readNextWord("package rename rule");
+        if (nextWord.indexOf("=>") < 0)
+        {
+            throw new ParseException("Expected a package.name=>prefix rule syntax: "
+                + nextWord);
+        }
+
+        String [] pair = nextWord.split("=>");
+        if (pair.length != 2)
+        {
+            throw new ParseException("Expected a package-prefix=>add-prefix rule syntax: "
+                + nextWord);
+        }
+
+        String packageMatchPrefix = pair[0];
+        String packageAddPrefix = pair[1];
+        if (packageMatchPrefix.startsWith(".") || packageMatchPrefix.endsWith(".") ||
+            packageAddPrefix.startsWith(".") || packageAddPrefix.endsWith("."))
+        {
+            throw new ParseException("Packages should not end with a '.': "
+                + nextWord);
+        }
+
+        list.add(new PackageRenameRule(pair[0], pair[1]));
+
+        readNextWord();
+        return list;
     }
 
 

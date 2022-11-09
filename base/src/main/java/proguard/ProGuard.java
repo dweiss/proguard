@@ -603,7 +603,7 @@ public class ProGuard
     {
         if (args.length == 0)
         {
-            logger.warn(VERSION);
+            logger.warn(VERSION + " (package renamer fork @ https://github.com/dweiss/proguard");
             logger.warn("Usage: java proguard.ProGuard [options ...]");
             System.exit(1);
         }
