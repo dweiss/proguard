@@ -1,0 +1,216 @@
+/*
+ * ProGuard -- shrinking, optimization, obfuscation, and preverification
+ *             of Java bytecode.
+ *
+ * Copyright (c) 2002-2020 Guardsquare NV
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
+package proguard.optimize.gson;
+
+import proguard.classfile.*;
+import proguard.classfile.attribute.Attribute;
+import proguard.classfile.attribute.annotation.*;
+import proguard.classfile.attribute.visitor.AttributeVisitor;
+import proguard.classfile.editor.*;
+
+
+/**
+ * This AttributeVisitor deletes annotations with the given object as
+ * processingInfo on the attributes that it visits.
+ * If deleting an annotation results in the corresponding annotation attribute
+ * to be empty, that attribute will be deleted as well.
+ *
+ * @author Rob Coekaerts
+ */
+class      MarkedAnnotationDeleter
+implements AttributeVisitor
+{
+    // A processing info flag to indicate the annotation can be deleted.
+    private final Object mark;
+
+
+    /**
+     * Creates a new MarkedAnnotationDeleter.
+     *
+     * @param mark the processing info used to recognize annotations that
+     *             need to be deleted.
+     */
+    public MarkedAnnotationDeleter(Object mark)
+    {
+        this.mark = mark;
+    }
+
+
+    // Implementations for AttributeVisitor.
+
+
+    @Override
+    public void visitAnyAttribute(Clazz clazz, Attribute attribute) {}
+
+
+    @Override
+    public void visitRuntimeVisibleAnnotationsAttribute(Clazz clazz,
+                                                        Member member,
+                                                        RuntimeVisibleAnnotationsAttribute runtimeVisibleAnnotationsAttribute)
+    {
+        cleanAnnotationsAttribute(clazz,
+                                  member,
+                                  runtimeVisibleAnnotationsAttribute,
+                                  Attribute.RUNTIME_VISIBLE_ANNOTATIONS);
+    }
+
+
+    @Override
+    public void visitRuntimeInvisibleAnnotationsAttribute(Clazz clazz,
+                                                          Member member,
+                                                          RuntimeInvisibleAnnotationsAttribute runtimeInvisibleAnnotationsAttribute)
+    {
+        cleanAnnotationsAttribute(clazz,
+                                  member,
+                                  runtimeInvisibleAnnotationsAttribute,
+                                  Attribute.RUNTIME_INVISIBLE_ANNOTATIONS);
+    }
+
+
+    @Override
+    public void visitRuntimeVisibleParameterAnnotationsAttribute(Clazz clazz,
+                                                                 Method method,
+                                                                 RuntimeVisibleParameterAnnotationsAttribute runtimeVisibleParameterAnnotationsAttribute)
+    {
+        cleanParameterAnnotationsAttribute(clazz,
+                                           method,
+                                           runtimeVisibleParameterAnnotationsAttribute,
+                                           Attribute.RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
+    }
+
+
+    @Override
+    public void visitRuntimeInvisibleParameterAnnotationsAttribute(Clazz clazz,
+                                                                   Method method,
+                                                                   RuntimeInvisibleParameterAnnotationsAttribute runtimeInvisibleParameterAnnotationsAttribute)
+    {
+        cleanParameterAnnotationsAttribute(clazz,
+                                           method,
+                                           runtimeInvisibleParameterAnnotationsAttribute,
+                                           Attribute.RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
+    }
+
+
+    @Override
+    public void visitRuntimeVisibleTypeAnnotationsAttribute(Clazz clazz,
+                                                            Member member,
+                                                            RuntimeVisibleTypeAnnotationsAttribute runtimeVisibleTypeAnnotationsAttribute)
+    {
+        cleanAnnotationsAttribute(clazz,
+                                  member,
+                                  runtimeVisibleTypeAnnotationsAttribute,
+                                  Attribute.RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
+    }
+
+
+    @Override
+    public void visitRuntimeInvisibleTypeAnnotationsAttribute(Clazz clazz,
+                                                              Member member,
+                                                              RuntimeInvisibleTypeAnnotationsAttribute runtimeInvisibleTypeAnnotationsAttribute)
+    {
+        cleanAnnotationsAttribute(clazz,
+                                  member,
+                                  runtimeInvisibleTypeAnnotationsAttribute,
+                                  Attribute.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
+    }
+
+
+    // Utility methods
+
+
+    private void cleanAnnotationsAttribute(Clazz                clazz,
+                                           Member               member,
+                                           AnnotationsAttribute attribute,
+                                           String               attributeName)
+    {
+        // Delete marked annotations.
+        AnnotationsAttributeEditor annotationsAttributeEditor = new AnnotationsAttributeEditor(attribute);
+        Annotation[]               annotations                = attribute.annotations;
+        int                        index                      = 0;
+        while (index < attribute.u2annotationsCount)
+        {
+            Annotation annotation = annotations[index];
+            if (annotation.getProcessingInfo() == mark)
+            {
+                // We do not increase the index here, as we are deleting this element and the next element
+                // to look at will be at the same index.
+                annotationsAttributeEditor.deleteAnnotation(index);
+            }
+            else
+            {
+                index++;
+            }
+        }
+
+        // Delete attribute if no annotations are left.
+        if (attribute.u2annotationsCount == 0)
+        {
+            AttributesEditor attributesEditor = new AttributesEditor((ProgramClass) clazz,
+                                                                     (ProgramMember)member,
+                                                                     false);
+            attributesEditor.deleteAttribute(attributeName);
+        }
+    }
+
+
+    private void cleanParameterAnnotationsAttribute(Clazz                         clazz,
+                                                    Member                        member,
+                                                    ParameterAnnotationsAttribute attribute,
+                                                    String                        attributeName)
+    {
+        // Delete marked annotations.
+        ParameterAnnotationsAttributeEditor annotationsAttributeEditor =
+            new ParameterAnnotationsAttributeEditor(attribute);
+        boolean allEmpty = true;
+        for (int parameterIndex = 0; parameterIndex < attribute.u1parametersCount; parameterIndex++)
+        {
+            Annotation[] annotations = attribute.parameterAnnotations[parameterIndex];
+            int          index       = 0;
+            while (index < attribute.u2parameterAnnotationsCount[parameterIndex])
+            {
+                Annotation annotation = annotations[index];
+                if (annotation.getProcessingInfo() == mark)
+                {
+                    // We do not increase the index here, as we are deleting this element and the next element
+                    // to look at will be at the same index.
+                    annotationsAttributeEditor.deleteAnnotation(parameterIndex, index);
+                }
+                else
+                {
+                    index++;
+                }
+            }
+            if (attribute.u2parameterAnnotationsCount[parameterIndex] != 0)
+            {
+                allEmpty = false;
+            }
+        }
+
+        // Delete attribute if all parameters have no annotations left.
+        if (allEmpty)
+        {
+            AttributesEditor attributesEditor = new AttributesEditor((ProgramClass) clazz,
+                                                                     (ProgramMember)member,
+                                                                     false);
+            attributesEditor.deleteAttribute(attributeName);
+        }
+    }
+}

@@ -1,10 +1,8 @@
-lib
-docs
-tmp
-*.log
-*.patch
-classes/
-
+.gradle
 .hg/**
 .hgtags
-out/
+.idea
+build
+local.properties
+/lib/
+docs/html

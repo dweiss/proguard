@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -47,6 +47,7 @@ public class KeepSpecificationElement extends ClassSpecificationElement
      */
     public void appendTo(List    keepSpecifications,
                          boolean markClasses,
+                         boolean markClassMembers,
                          boolean markConditionally)
     {
         // Get the referenced file set, or else this one.
@@ -57,6 +58,7 @@ public class KeepSpecificationElement extends ClassSpecificationElement
 
         KeepClassSpecification keepClassSpecification =
             new KeepClassSpecification(markClasses,
+                                       markClassMembers,
                                        markConditionally,
                                        markDescriptorClasses,
                                        markCodeAttributes,

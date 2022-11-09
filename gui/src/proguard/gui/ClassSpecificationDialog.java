@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,7 +21,7 @@
 package proguard.gui;
 
 import proguard.*;
-import proguard.classfile.ClassConstants;
+import proguard.classfile.AccessConstants;
 import proguard.classfile.util.ClassUtil;
 
 import javax.swing.*;
@@ -51,9 +51,9 @@ final class ClassSpecificationDialog extends JDialog
 
     private final JTextArea commentsTextArea = new JTextArea(4, 20);
 
-    private final JRadioButton keepClassesAndMembersRadioButton  = new JRadioButton(msg("keep"));
-    private final JRadioButton keepClassMembersRadioButton       = new JRadioButton(msg("keepClassMembers"));
-    private final JRadioButton keepClassesWithMembersRadioButton = new JRadioButton(msg("keepClassesWithMembers"));
+    private final JCheckBox keepClassesCheckBox            = new JCheckBox(msg("keepClasses"));
+    private final JCheckBox keepClassMembersCheckBox       = new JCheckBox(msg("keepClassMembers"));
+    private final JCheckBox keepClassesWithMembersCheckBox = new JCheckBox(msg("keepClassesWithMembers"));
 
     private final JCheckBox keepDescriptorClassesCheckBox = new JCheckBox(msg("keepDescriptorClasses"));
     private final JCheckBox keepCodeCheckBox              = new JCheckBox(msg("keepCode"));
@@ -172,18 +172,13 @@ final class ClassSpecificationDialog extends JDialog
         commentsPanel.add(tip(commentsScrollPane, "commentsTip"), constraintsLastStretch);
 
         // Create the keep option panel.
-        ButtonGroup keepButtonGroup = new ButtonGroup();
-        keepButtonGroup.add(keepClassesAndMembersRadioButton);
-        keepButtonGroup.add(keepClassMembersRadioButton);
-        keepButtonGroup.add(keepClassesWithMembersRadioButton);
-
         JPanel keepOptionPanel = new JPanel(layout);
         keepOptionPanel.setBorder(BorderFactory.createTitledBorder(etchedBorder,
                                                                    msg("keepTitle")));
 
-        keepOptionPanel.add(tip(keepClassesAndMembersRadioButton,  "keepTip"),                   constraintsLastStretch);
-        keepOptionPanel.add(tip(keepClassMembersRadioButton,       "keepClassMembersTip"),       constraintsLastStretch);
-        keepOptionPanel.add(tip(keepClassesWithMembersRadioButton, "keepClassesWithMembersTip"), constraintsLastStretch);
+        keepOptionPanel.add(tip(keepClassesCheckBox,            "keepClassesTip"),            constraintsLastStretch);
+        keepOptionPanel.add(tip(keepClassMembersCheckBox,       "keepClassMembersTip"),       constraintsLastStretch);
+        keepOptionPanel.add(tip(keepClassesWithMembersCheckBox, "keepClassesWithMembersTip"), constraintsLastStretch);
 
         // Create the also keep panel.
         final JPanel alsoKeepOptionPanel = new JPanel(layout);
@@ -413,6 +408,7 @@ final class ClassSpecificationDialog extends JDialog
     public void setKeepSpecification(KeepClassSpecification keepClassSpecification)
     {
         boolean            markClasses           = keepClassSpecification.markClasses;
+        boolean            markClassMembers      = keepClassSpecification.markClassMembers;
         boolean            markConditionally     = keepClassSpecification.markConditionally;
         boolean            markDescriptorClasses = keepClassSpecification.markDescriptorClasses;
         boolean            markCodeAttributes    = keepClassSpecification.markCodeAttributes;
@@ -421,20 +417,15 @@ final class ClassSpecificationDialog extends JDialog
         boolean            allowObfuscation      = keepClassSpecification.allowObfuscation;
         ClassSpecification condition             = keepClassSpecification.condition;
 
-        // Figure out the proper keep radio button and set it.
-        JRadioButton keepOptionRadioButton =
-            markConditionally ? keepClassesWithMembersRadioButton :
-            markClasses       ? keepClassesAndMembersRadioButton  :
-                                keepClassMembersRadioButton;
-
-        keepOptionRadioButton.setSelected(true);
-
         // Set the other check boxes.
-        keepDescriptorClassesCheckBox.setSelected(markDescriptorClasses);
-        keepCodeCheckBox             .setSelected(markCodeAttributes);
-        allowShrinkingCheckBox       .setSelected(allowShrinking);
-        allowOptimizationCheckBox    .setSelected(allowOptimization);
-        allowObfuscationCheckBox     .setSelected(allowObfuscation);
+        keepClassesCheckBox           .setSelected(markClasses);
+        keepClassMembersCheckBox      .setSelected(markClassMembers);
+        keepClassesWithMembersCheckBox.setSelected(markDescriptorClasses);
+        keepDescriptorClassesCheckBox .setSelected(markDescriptorClasses);
+        keepCodeCheckBox              .setSelected(markCodeAttributes);
+        allowShrinkingCheckBox        .setSelected(allowShrinking);
+        allowOptimizationCheckBox     .setSelected(allowOptimization);
+        allowObfuscationCheckBox      .setSelected(allowObfuscation);
 
         // Set the condition comment and dialog.
         conditionCommentsField.setText(label(condition));
@@ -464,13 +455,13 @@ final class ClassSpecificationDialog extends JDialog
         commentsTextArea.setText(comments == null ? "" : comments);
 
         // Set the access radio buttons.
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_PUBLIC,      publicRadioButtons);
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_FINAL,       finalRadioButtons);
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_ABSTRACT,    abstractRadioButtons);
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_INTERFACE,   interfaceRadioButtons);
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_ANNOTATION,  annotationRadioButtons);
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_ENUM,        enumRadioButtons);
-        setClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_SYNTHETIC,   syntheticRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.PUBLIC,     publicRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.FINAL,      finalRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.ABSTRACT,   abstractRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.INTERFACE,  interfaceRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.ANNOTATION, annotationRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.ENUM,       enumRadioButtons);
+        setClassSpecificationRadioButtons(classSpecification, AccessConstants.SYNTHETIC,  syntheticRadioButtons);
 
         // Set the class and annotation text fields.
         annotationTypeTextField       .setText(annotationType        == null ? ""  : ClassUtil.externalType(annotationType));
@@ -488,16 +479,18 @@ final class ClassSpecificationDialog extends JDialog
      */
     public KeepClassSpecification getKeepSpecification()
     {
-        boolean            markClasses           = !keepClassMembersRadioButton     .isSelected();
-        boolean            markConditionally     = keepClassesWithMembersRadioButton.isSelected();
-        boolean            markDescriptorClasses = keepDescriptorClassesCheckBox    .isSelected();
-        boolean            markCodeAttributes    = keepCodeCheckBox                 .isSelected();
-        boolean            allowShrinking        = allowShrinkingCheckBox           .isSelected();
-        boolean            allowOptimization     = allowOptimizationCheckBox        .isSelected();
-        boolean            allowObfuscation      = allowObfuscationCheckBox         .isSelected();
-        ClassSpecification condition             = conditionDialog                  .getClassSpecification();
+        boolean            markClasses           = keepClassesCheckBox           .isSelected();
+        boolean            markClassMembers      = keepClassMembersCheckBox      .isSelected();
+        boolean            markConditionally     = keepClassesWithMembersCheckBox.isSelected();
+        boolean            markDescriptorClasses = keepDescriptorClassesCheckBox .isSelected();
+        boolean            markCodeAttributes    = keepCodeCheckBox              .isSelected();
+        boolean            allowShrinking        = allowShrinkingCheckBox        .isSelected();
+        boolean            allowOptimization     = allowOptimizationCheckBox     .isSelected();
+        boolean            allowObfuscation      = allowObfuscationCheckBox      .isSelected();
+        ClassSpecification condition             = conditionDialog               .getClassSpecification();
 
         return new KeepClassSpecification(markClasses,
+                                          markClassMembers,
                                           markConditionally,
                                           markDescriptorClasses,
                                           markCodeAttributes,
@@ -531,13 +524,13 @@ final class ClassSpecificationDialog extends JDialog
                                    extendsClassName.equals("")      ? null : ClassUtil.internalClassName(extendsClassName));
 
         // Also get the access radio button settings.
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_PUBLIC,      publicRadioButtons);
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_FINAL,       finalRadioButtons);
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_ABSTRACT,    abstractRadioButtons);
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_INTERFACE,   interfaceRadioButtons);
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_ANNOTATION, annotationRadioButtons);
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_ENUM,        enumRadioButtons);
-        getClassSpecificationRadioButtons(classSpecification, ClassConstants.ACC_SYNTHETIC,   syntheticRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.PUBLIC,     publicRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.FINAL,      finalRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.ABSTRACT,   abstractRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.INTERFACE,  interfaceRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.ANNOTATION, annotationRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.ENUM,       enumRadioButtons);
+        getClassSpecificationRadioButtons(classSpecification, AccessConstants.SYNTHETIC,  syntheticRadioButtons);
 
         // Get the keep class member option lists.
         classSpecification.fieldSpecifications  = memberSpecificationsPanel.getMemberSpecifications(true);

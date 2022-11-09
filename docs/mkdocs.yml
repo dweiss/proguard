@@ -1,0 +1,103 @@
+###################################################################
+# Project information
+###################################################################
+site_name:        ProGuard
+site_description: Optimizer and obfuscator for Java bytecode
+site_author:      Guardsquare NV
+copyright:        Copyright &copy; 2002-2021 Guardsquare NV
+
+###################################################################
+# Options
+###################################################################
+theme:
+  name:     material
+  logo:     img/proguard.png
+  favicon:  img/guardsquare.png
+  language: en
+  palette:  blue
+  font:
+  feature:
+
+docs_dir: md
+site_dir: html
+
+extra_css:
+  - css/extra.css
+  - css/admonition.css
+
+use_directory_urls: false
+#strict: true # broken links are errors
+
+###################################################################
+# Theme specific
+###################################################################
+extra:
+  #font:
+  #  text: 'Droid Sans'
+  #  code: 'Ubuntu Mono'
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/Guardsquare/proguard
+  - icon: fontawesome/brands/twitter
+    link: https://twitter.com/guardsquare
+  - icon: fontawesome/brands/linkedin
+    link: https://www.linkedin.com/company/guardsquare-nv
+  - icon: fontawesome/brands/facebook
+    link: https://www.facebook.com/guardsquare
+  #feature:
+  #  tabs: true
+
+###################################################################
+# Extensions
+###################################################################
+markdown_extensions:
+  - attr_list
+  - admonition
+  - footnotes
+  - def_list
+  - toc:
+      permalink: True
+  - codehilite:
+      guess_lang: False
+  - pymdownx.magiclink
+  - pymdownx.tabbed
+  - pymdownx.superfences:
+      css_class: codehilite
+  - pymdownx.striphtml:
+      strip_comments: true
+plugins:
+  - search
+
+###################################################################
+# Page tree
+###################################################################
+nav:
+- Home:            manual/home.md
+- Quickstart:      manual/quickstart.md  
+- Building:        manual/building.md
+- Setup:
+    - Standalone:          manual/setup/standalone.md
+    - Android Gradle:      manual/setup/gradleplugin.md
+    - Java/Kotlin Gradle:  manual/setup/gradle.md
+    - Ant Task:            manual/setup/ant.md
+    - Upgrading:           manual/setup/upgrading.md
+- Configuration:
+    - Usage:           manual/configuration/usage.md
+    - Attributes:      manual/configuration/attributes.md
+    - Optimizations:   manual/configuration/optimizations.md
+    - Examples:        manual/configuration/examples.md
+- Languages:
+    - Java:            manual/languages/java.md
+    - Kotlin:          manual/languages/kotlin.md
+- Tools:
+    - ReTrace:         manual/tools/retrace.md
+- Troubleshooting:
+    - Overview:        manual/troubleshooting/troubleshooting.md
+    - Limitations:     manual/troubleshooting/limitations.md
+- Reference Card:  manual/refcard.md
+- Version History: manual/releasenotes.md
+- Feedback:        manual/feedback.md
+- License:
+    - Overview:        manual/license/license.md
+    - GPL:             manual/license/gpl.md
+    - GPL Exception:   manual/license/gplexception.md

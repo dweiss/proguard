@@ -1,0 +1,23 @@
+name: Continuous Integration
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: proguard-main
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          build-root-directory: proguard-main/
+          wrapper-directory: proguard-main/
+          arguments: test :base:testAllJavaVersions :base:jacocoTestReport jar

@@ -3,18 +3,23 @@
 // support of the Android Gradle plugin.
 buildscript {
     repositories {
-        flatDir dirs: '../../lib' // For the ProGuard plugin.
-        google()                  // For the Android plugin.
-        jcenter()                 // For anything else.
+        mavenLocal()   // For local testing
+        google()       // For the Android Gradle plugin.
+        mavenCentral() // For the ProGuard Gradle Plugin and anything else.
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.0'
-        classpath ':proguard:'
+        classpath 'com.guardsquare:proguard-gradle:7.2.1'
+        classpath 'com.android.tools.build:gradle:7.0.0'
     }
 }
 
 apply plugin: 'com.android.application'
-apply plugin: 'proguard'
+apply plugin: 'com.guardsquare.proguard'
+
+repositories {
+    google()       // For the Android plugin.
+    mavenCentral() // For anything else.
+}
 
 android {
     compileSdkVersion 28
@@ -29,6 +34,8 @@ android {
     }
 
     defaultConfig {
+        minSdkVersion    11
+        targetSdkVersion 29
         signingConfig signingConfigs.debug
     }
 
@@ -45,22 +52,22 @@ android {
     }
 
     buildTypes {
-        // We can now use ProGuard's tuned Android configuration files
-        // instead of the default ones from the Android SDK.
         debug {
+            // Disable the built-in minification
             minifyEnabled false
-            proguardFile getTunedProGuardFile('proguard-android-debug.pro')
-            proguardFile 'proguard-project.txt'
         }
         release {
+            // Disable the built-in minification
             minifyEnabled false
-            proguardFile getTunedProGuardFile('proguard-android-release.pro')
-            proguardFile 'proguard-project.txt'
         }
     }
 }
 
-repositories {
-    google()  // For the Android plugin.
-    jcenter() // For anything else.
+proguard {
+    configurations {
+        release {
+            defaultConfiguration 'proguard-android-optimize.txt'
+            configuration 'proguard-project.txt'
+        }
+    }
 }

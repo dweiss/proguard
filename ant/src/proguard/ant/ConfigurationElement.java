@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -99,19 +99,14 @@ public class ConfigurationElement extends FileSet
             {
                 File configurationFile = new File(baseDir, fileNames[index]);
 
-                ConfigurationParser parser =
-                    new ConfigurationParser(configurationFile, properties);
-                try
+                try (ConfigurationParser parser =
+                     new ConfigurationParser(configurationFile, properties))
                 {
                     parser.parse(configuration);
                 }
                 catch (ParseException ex)
                 {
                     throw new BuildException(ex.getMessage());
-                }
-                finally
-                {
-                    parser.close();
                 }
             }
         }

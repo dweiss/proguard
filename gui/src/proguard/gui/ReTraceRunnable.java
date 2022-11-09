@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -78,7 +78,7 @@ final class ReTraceRunnable implements Runnable
         try
         {
             // Execute ReTrace with the collected settings.
-            new ReTrace(ReTrace.STACK_TRACE_EXPRESSION, verbose, mappingFile)
+            new ReTrace(ReTrace.REGULAR_EXPRESSION, ReTrace.REGULAR_EXPRESSION2, true, verbose, mappingFile)
                 .retrace(reader, writer);
         }
         catch (Exception ex)

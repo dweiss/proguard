@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -49,21 +49,15 @@ public class ProGuardTask extends ConfigurationTask
             URL configUrl =
                 ConfigurationElement.class.getResource(configurationFile.toString());
 
-            ConfigurationParser parser = configUrl != null ?
-                new ConfigurationParser(configUrl, properties) :
-                new ConfigurationParser(configurationFile, properties);
-
-            try
+            try (ConfigurationParser parser = configUrl != null ?
+                    new ConfigurationParser(configUrl, properties) :
+                    new ConfigurationParser(configurationFile, properties))
             {
                 parser.parse(configuration);
             }
             catch (ParseException e)
             {
                 throw new BuildException(e.getMessage(), e);
-            }
-            finally
-            {
-                parser.close();
             }
         }
         catch (IOException e)
@@ -318,11 +312,15 @@ public class ProGuardTask extends ConfigurationTask
     }
 
 
-    public void setAddConfigurationDebugging(boolean addConfigurationDebugging)
+    public void setAddconfigurationdebugging(boolean addConfigurationDebugging)
     {
         configuration.addConfigurationDebugging = addConfigurationDebugging;
     }
 
+    public void setKeepkotlinmetadata(boolean keepKotlinMetadata)
+    {
+        configuration.keepKotlinMetadata = keepKotlinMetadata;
+    }
 
 
     // Implementations for Task.
@@ -334,7 +332,7 @@ public class ProGuardTask extends ConfigurationTask
             ProGuard proGuard = new ProGuard(configuration);
             proGuard.execute();
         }
-        catch (IOException e)
+        catch (Exception e)
         {
             throw new BuildException(e.getMessage(), e);
         }

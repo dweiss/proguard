@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -236,7 +236,7 @@ public class FrameRemapper implements MappingProcessor
     /**
      * Returns the original class name.
      */
-    private String originalClassName(String obfuscatedClassName)
+    public String originalClassName(String obfuscatedClassName)
     {
         String originalClassName = classMap.get(obfuscatedClassName);
 
@@ -426,9 +426,12 @@ public class FrameRemapper implements MappingProcessor
                                 String originalArguments)
         {
             return
-                (obfuscatedLineNumber == 0 ? obfuscatedLastLineNumber == 0 :
-                     obfuscatedFirstLineNumber <= obfuscatedLineNumber && obfuscatedLineNumber <= obfuscatedLastLineNumber) &&
-                (originalType         == null || originalType.equals(this.originalType))                                    &&
+                // We're allowing unknown values, represented as 0.
+                (obfuscatedLineNumber     == 0 ||
+                 obfuscatedLastLineNumber == 0 ||
+                (obfuscatedFirstLineNumber <= obfuscatedLineNumber  &&
+                 obfuscatedLineNumber      <= obfuscatedLastLineNumber))                 &&
+                (originalType         == null || originalType.equals(this.originalType)) &&
                 (originalArguments    == null || originalArguments.equals(this.originalArguments));
         }
     }

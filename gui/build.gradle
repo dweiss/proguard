@@ -1,13 +1,19 @@
-// Gradle build script for the ProGuard GUI.
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-apply plugin: 'java'
+plugins {
+    id 'com.github.johnrengelman.shadow'
+    id 'java'
+    id 'maven-publish'
+}
 
-sourceCompatibility = "${target}"
-targetCompatibility = "${target}"
+repositories {
+    mavenCentral()
+}
 
 sourceSets.main {
     java {
         srcDirs = ['src']
+        include '**/*.java'
     }
     resources {
         srcDirs = ['src']
@@ -19,10 +25,34 @@ sourceSets.main {
 }
 
 dependencies {
-    compile project(':core')
-    compile project(':retrace')
+    implementation project(':base')
+    implementation project(':retrace')
+    implementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.17.1'
 }
 
-jar {
-    manifest.from 'src/META-INF/MANIFEST.MF'
+task fatJar(type: ShadowJar) {
+    destinationDirectory.set(file("$rootDir/lib"))
+    archiveFileName.set('proguardgui.jar')
+    from sourceSets.main.output
+    configurations = [project.configurations.runtimeClasspath]
+    manifest {
+        attributes(
+                'Manifest-Version': '1.0',
+                'Main-Class': 'proguard.gui.ProGuardGUI',
+                'Multi-Release': true,
+                'Implementation-Version': archiveVersion.get())
+    }
+}
+
+assemble.dependsOn fatJar
+
+afterEvaluate {
+    publishing {
+        publications.getByName(project.name) {
+            pom {
+                description = 'ProGuardGUI is an interface for ProGuard, the free shrinker, optimizer, obfuscator, and preverifier for Java bytecode'
+            }
+        }
+    }
 }

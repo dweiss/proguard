@@ -1,9 +1,14 @@
-// Gradle build script for ReTrace.
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-apply plugin: 'java'
+plugins {
+    id 'com.github.johnrengelman.shadow'
+    id 'java'
+    id 'maven-publish'
+}
 
-sourceCompatibility = "${target}"
-targetCompatibility = "${target}"
+repositories {
+    mavenCentral()
+}
 
 sourceSets.main {
     java {
@@ -19,9 +24,30 @@ sourceSets.main {
 }
 
 dependencies {
-    compile project(':core')
+    implementation project(':base')
 }
 
-jar {
-    manifest.from 'src/META-INF/MANIFEST.MF'
+task fatJar(type: ShadowJar) {
+    destinationDirectory.set(file("$rootDir/lib"))
+    archiveFileName.set('retrace.jar')
+    from sourceSets.main.output
+    configurations = [project.configurations.runtimeClasspath]
+    manifest {
+        attributes(
+                'Manifest-Version': '1.0',
+                'Multi-Release': true,
+                'Main-Class': 'proguard.retrace.ReTrace')
+    }
+}
+
+assemble.dependsOn fatJar
+
+afterEvaluate {
+    publishing {
+        publications.getByName(project.name) {
+            pom {
+                description = "ReTrace is a companion tool for ProGuard and DexGuard that 'de-obfuscates' stack traces."
+            }
+        }
+    }
 }

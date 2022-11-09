@@ -1,9 +1,7 @@
-// Gradle build script for the ProGuard annotations.
-
-apply plugin: 'java'
-
-sourceCompatibility = "${target}"
-targetCompatibility = "${target}"
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
 
 sourceSets.main {
     java {
@@ -15,5 +13,15 @@ sourceSets.main {
         include '**/*.gif'
         include '**/*.png'
         include '**/*.pro'
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications.getByName(project.name) {
+            pom {
+                description = 'Java annotations to configure ProGuard, the free shrinker, optimizer, obfuscator, and preverifier for Java bytecode'
+            }
+        }
     }
 }

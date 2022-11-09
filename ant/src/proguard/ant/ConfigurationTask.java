@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2019 Guardsquare NV
+ * Copyright (c) 2002-2020 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -144,6 +144,7 @@ public class ConfigurationTask extends Task
         configuration.keep = extendKeepSpecifications(configuration.keep,
                                                       keepSpecificationElement,
                                                       true,
+                                                      true,
                                                       false);
     }
 
@@ -153,6 +154,7 @@ public class ConfigurationTask extends Task
         configuration.keep = extendKeepSpecifications(configuration.keep,
                                                       keepSpecificationElement,
                                                       false,
+                                                      true,
                                                       false);
     }
 
@@ -161,6 +163,7 @@ public class ConfigurationTask extends Task
     {
         configuration.keep = extendKeepSpecifications(configuration.keep,
                                                       keepSpecificationElement,
+                                                      true,
                                                       true,
                                                       true);
     }
@@ -174,6 +177,7 @@ public class ConfigurationTask extends Task
         configuration.keep = extendKeepSpecifications(configuration.keep,
                                                       keepSpecificationElement,
                                                       true,
+                                                      true,
                                                       false);
     }
 
@@ -186,6 +190,7 @@ public class ConfigurationTask extends Task
         configuration.keep = extendKeepSpecifications(configuration.keep,
                                                       keepSpecificationElement,
                                                       false,
+                                                      true,
                                                       false);
     }
 
@@ -197,6 +202,7 @@ public class ConfigurationTask extends Task
 
         configuration.keep = extendKeepSpecifications(configuration.keep,
                                                       keepSpecificationElement,
+                                                      true,
                                                       true,
                                                       true);
     }
@@ -341,22 +347,16 @@ public class ConfigurationTask extends Task
             Properties properties = new Properties();
             properties.putAll(project.getProperties());
 
-            ConfigurationParser parser = new ConfigurationParser(arg,
-                                                                 "embedded configuration",
-                                                                 project.getBaseDir(),
-                                                                 properties);
-
-            try
+            try (ConfigurationParser parser = new ConfigurationParser(arg,
+                                                                      "embedded configuration",
+                                                                      project.getBaseDir(),
+                                                                      properties))
             {
                 parser.parse(configuration);
             }
             catch (ParseException ex)
             {
                 throw new BuildException(ex.getMessage());
-            }
-            finally
-            {
-                parser.close();
             }
         }
         catch (IOException ex)
@@ -404,6 +404,7 @@ public class ConfigurationTask extends Task
     private List extendKeepSpecifications(List                     keepSpecifications,
                                           KeepSpecificationElement keepSpecificationElement,
                                           boolean                  markClasses,
+                                          boolean                  markClassMembers,
                                           boolean                  markClassesConditionally)
     {
         if (keepSpecifications == null)
@@ -413,6 +414,7 @@ public class ConfigurationTask extends Task
 
         keepSpecificationElement.appendTo(keepSpecifications,
                                           markClasses,
+                                          markClassMembers,
                                           markClassesConditionally);
 
         return keepSpecifications;
