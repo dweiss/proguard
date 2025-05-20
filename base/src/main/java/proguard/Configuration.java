@@ -20,8 +20,6 @@
  */
 package proguard;
 
-import proguard.obfuscate.PackageRenameRule;
-
 import java.io.File;
 import java.net.URL;
 import java.util.*;
@@ -221,11 +219,6 @@ public class Configuration
      * An optional input file for reading an obfuscation mapping.
      */
     public File                         applyMapping;
-
-    /**
-     * Rename rules for packages.
-     */
-    public List<PackageRenameRule>      renamePackages;
 
     /**
      * An optional name of a file containing obfuscated class member names.
