@@ -1,6 +1,7 @@
 package proguard.obfuscate;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import proguard.Configuration;
 import proguard.classfile.*;
@@ -14,7 +15,7 @@ public class PackageRenamer implements ClassVisitor, MemberVisitor
 {
   private final MappingProcessor keeper;
   private String className;
-  private List renameRules;
+  private List<PackageRenameRule> renameRules;
 
   public PackageRenamer(MappingProcessor keeper, Configuration configuration)
   {
@@ -32,12 +33,10 @@ public class PackageRenamer implements ClassVisitor, MemberVisitor
   {
     String name = ClassUtil.externalClassName(programClass.getName());
 
-    for (int i = 0; i < renameRules.size(); i++)
+    for (PackageRenameRule rule : renameRules)
     {
-      PackageRenameRule rule = (PackageRenameRule) renameRules.get(i);
-      if (name.startsWith(rule.packagePrefix))
-      {
-        String newClassName = rule.addPrefix + "." + name;
+      if (rule.shouldRename(name)) {
+        String newClassName = rule.getNewClassName(name);
         this.className = programClass.getName();
         if (keeper.processClassMapping(className, newClassName))
         {
