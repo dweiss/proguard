@@ -103,6 +103,7 @@ implements   ClassVisitor,
                            ClassPool             libraryClassPool,
                            DictionaryNameFactory classNameFactory,
                            DictionaryNameFactory packageNameFactory,
+                           Set                   classNamesToAvoid,
                            boolean               useMixedCaseClassNames,
                            List                  keepPackageNames,
                            String                flattenPackageHierarchy,
@@ -110,6 +111,7 @@ implements   ClassVisitor,
                            boolean               allowAccessModification,
                            boolean               adaptKotlin)
     {
+        this.classNamesToAvoid.addAll(classNamesToAvoid);
         this.classNameFactory   = classNameFactory;
         this.packageNameFactory = packageNameFactory;
 
