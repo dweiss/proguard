@@ -40,7 +40,7 @@ The ProGuard artifacts are hosted at [Maven Central](https://search.maven.org/se
 
 When working on your Android application (apk, aab) or library (aar), you can include ProGuard in your Gradle build by:
 
-- Using ProGuard's Gradle plugin, which you can apply in your `build.gradle` file.
+- Using ProGuard's Gradle plugin, which you can apply in your `build.gradle` file (AGP 4.x - 7.x).
 - Using the integrated ProGuard by disabling R8 in your `gradle.properties` (only applicable for AGP < 7).
 
 For more detailed information see [Android Gradle](setup/gradleplugin.md).

@@ -20,14 +20,25 @@
  */
 package proguard;
 
-import proguard.classfile.*;
+import proguard.classfile.AccessConstants;
+import proguard.classfile.ClassConstants;
+import proguard.classfile.JavaAccessConstants;
+import proguard.classfile.JavaTypeConstants;
+import proguard.classfile.TypeConstants;
 import proguard.classfile.util.ClassUtil;
-import proguard.util.*;
+import proguard.util.ListUtil;
+import proguard.util.StringUtil;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-
+import java.io.File;
+import java.io.IOException;
+import java.io.LineNumberReader;
+import java.io.StringReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.function.BiConsumer;
 
 /**
  * This class parses ProGuard configurations. Configurations can be read from an
@@ -38,6 +49,8 @@ import java.util.*;
  */
 public class ConfigurationParser implements AutoCloseable
 {
+    private final boolean useDalvikVerification = System.getProperty("proguard.use.dalvik.identifier.verification") != null;
+
     private final WordReader reader;
     private final Properties properties;
 
@@ -139,9 +152,24 @@ public class ConfigurationParser implements AutoCloseable
      * @throws IOException if an IO error occurs while reading a configuration.
      */
     public void parse(Configuration configuration)
+    throws ParseException, IOException {
+        parse(configuration, null);
+    }
+
+    /**
+     * Parses and returns the configuration.
+     *
+     * @param configuration  the configuration that is updated as a side-effect.
+     * @param unknownOptionHandler optional handler for unknown options; if null then a {@link ParseException}
+     *                             is thrown when encountering an unknown option.
+     * @throws ParseException if the any of the configuration settings contains
+     *                        a syntax error.
+     * @throws IOException    if an IO error occurs while reading a configuration.
+     */
+    public void parse(Configuration configuration, BiConsumer<String, String> unknownOptionHandler)
     throws ParseException, IOException
     {
-        while (nextWord != null)
+        parseWord: while (nextWord != null)
         {
             lastComments = reader.lastComments();
 
@@ -210,7 +238,8 @@ public class ConfigurationParser implements AutoCloseable
             else if (ConfigurationConstants.ADAPT_CLASS_STRINGS_OPTION                       .startsWith(nextWord)) configuration.adaptClassStrings                     = parseCommaSeparatedList("class name", true, true, false, false, true, false, false, true, false, configuration.adaptClassStrings);
             else if (ConfigurationConstants.ADAPT_RESOURCE_FILE_NAMES_OPTION                 .startsWith(nextWord)) configuration.adaptResourceFileNames                = parseCommaSeparatedList("resource file name", true, true, false, true, false, true, false, false, false, configuration.adaptResourceFileNames);
             else if (ConfigurationConstants.ADAPT_RESOURCE_FILE_CONTENTS_OPTION              .startsWith(nextWord)) configuration.adaptResourceFileContents             = parseCommaSeparatedList("resource file name", true, true, false, true, false, true, false, false, false, configuration.adaptResourceFileContents);
-            else if (ConfigurationConstants.KEEP_KOTLIN_METADATA                             .startsWith(nextWord)) configuration.keepKotlinMetadata                    = parseNoArgument(true);
+            else if (ConfigurationConstants.DONT_PROCESS_KOTLIN_METADATA                     .startsWith(nextWord)) configuration.dontProcessKotlinMetadata             = parseNoArgument(true);
+            else if (ConfigurationConstants.KEEP_KOTLIN_METADATA                             .startsWith(nextWord)) configuration.keepKotlinMetadata                    = parseKeepKotlinMetadata();
 
             else if (ConfigurationConstants.DONT_PREVERIFY_OPTION                            .startsWith(nextWord)) configuration.preverify                             = parseNoArgument(false);
             else if (ConfigurationConstants.MICRO_EDITION_OPTION                             .startsWith(nextWord)) configuration.microEdition                          = parseNoArgument(true);
@@ -228,9 +257,21 @@ public class ConfigurationParser implements AutoCloseable
             else if (ConfigurationConstants.PRINT_CONFIGURATION_OPTION                       .startsWith(nextWord)) configuration.printConfiguration                    = parseOptionalFile();
             else if (ConfigurationConstants.DUMP_OPTION                                      .startsWith(nextWord)) configuration.dump                                  = parseOptionalFile();
             else if (ConfigurationConstants.ADD_CONFIGURATION_DEBUGGING_OPTION               .startsWith(nextWord)) configuration.addConfigurationDebugging             = parseNoArgument(true);
+            else if (ConfigurationConstants.OPTIMIZE_AGGRESSIVELY                            .startsWith(nextWord)) configuration.optimizeConservatively                = parseNoArgument(false);
+            else if (ConfigurationConstants.ALWAYS_INLINE                                    .startsWith(nextWord))                                                       parseUnsupportedR8Rules(ConfigurationConstants.ALWAYS_INLINE, true);
+            else if (ConfigurationConstants.IDENTIFIER_NAME_STRING                           .startsWith(nextWord))                                                       parseUnsupportedR8Rules(ConfigurationConstants.IDENTIFIER_NAME_STRING, true);
+            else if (ConfigurationConstants.MAXIMUM_REMOVED_ANDROID_LOG_LEVEL                .equals(nextWord))                                                           parseMaximumRemovedAndroidLogLevel();
             else
             {
-                throw new ParseException("Unknown option " + reader.locationDescription());
+                if (unknownOptionHandler != null) {
+                    unknownOptionHandler.accept(nextWord, reader.lineLocationDescription());
+                    while (nextWord != null) {
+                        readNextWord();
+                        if (nextWord != null && nextWord.startsWith("-")) {
+                            continue parseWord;
+                        }
+                    }
+                } else throw new ParseException("Unknown option " + reader.locationDescription());
             }
         }
     }
@@ -247,6 +288,14 @@ public class ConfigurationParser implements AutoCloseable
         {
             reader.close();
         }
+    }
+
+
+    private boolean parseKeepKotlinMetadata() throws IOException
+    {
+        System.err.println("The `-keepkotlinmetadata` option is deprecated and will be removed in a future ProGuard release." +
+                           "Please use `-keep class kotlin.Metadata` instead.");
+        return parseNoArgument(true);
     }
 
 
@@ -840,7 +889,7 @@ public class ConfigurationParser implements AutoCloseable
         int requiredUnsetClassAccessFlags = 0;
 
         // Parse the class annotations and access modifiers until the class keyword.
-        while (!ConfigurationConstants.CLASS_KEYWORD.equals(nextWord))
+        while (!ConfigurationConstants.CLASS_KEYWORD.equals(nextWord) && !configurationEnd(true))
         {
             // Strip the negating sign, if any.
             boolean negated =
@@ -1094,12 +1143,25 @@ public class ConfigurationParser implements AutoCloseable
         // Parse the class member type and name part.
 
         // Did we get a special wildcard?
-        if (ConfigurationConstants.ANY_CLASS_MEMBER_KEYWORD.equals(nextWord) ||
-            ConfigurationConstants.ANY_FIELD_KEYWORD       .equals(nextWord) ||
-            ConfigurationConstants.ANY_METHOD_KEYWORD      .equals(nextWord))
+        boolean isStar = ConfigurationConstants.ANY_CLASS_MEMBER_KEYWORD.equals(nextWord);
+        boolean isFields = ConfigurationConstants.ANY_FIELD_KEYWORD.equals(nextWord);
+        boolean isMethods = ConfigurationConstants.ANY_METHOD_KEYWORD.equals(nextWord);
+        boolean isFieldsOrMethods = isFields || isMethods;
+
+        String type = nextWord;
+        String typeLocation = reader.locationDescription();
+
+        // Try to read the class member name; we need to do this now so that we can check the nextWord
+        // to see if we're parsing a wildcard type.
+        readNextWord("class member name", false, false, false);
+
+        // Is it a wildcard star (short for all members) or is a type wildcard?
+        boolean isReallyStar = isStar && ConfigurationConstants.SEPARATOR_KEYWORD.equals(nextWord);
+
+        if (isFieldsOrMethods || isReallyStar)
         {
             // Act according to the type of wildcard.
-            if (ConfigurationConstants.ANY_CLASS_MEMBER_KEYWORD.equals(nextWord))
+            if (isStar)
             {
                 checkFieldAccessFlags(requiredSetMemberAccessFlags,
                                       requiredUnsetMemberAccessFlags);
@@ -1119,10 +1181,10 @@ public class ConfigurationParser implements AutoCloseable
                                             null,
                                             null));
             }
-            else if (ConfigurationConstants.ANY_FIELD_KEYWORD.equals(nextWord))
+            else if (isFields)
             {
                 checkFieldAccessFlags(requiredSetMemberAccessFlags,
-                                      requiredUnsetMemberAccessFlags);
+                        requiredUnsetMemberAccessFlags);
 
                 classSpecification.addField(
                     new MemberSpecification(requiredSetMemberAccessFlags,
@@ -1131,7 +1193,7 @@ public class ConfigurationParser implements AutoCloseable
                                             null,
                                             null));
             }
-            else if (ConfigurationConstants.ANY_METHOD_KEYWORD.equals(nextWord))
+            else if (isMethods)
             {
                 checkMethodAccessFlags(requiredSetMemberAccessFlags,
                                        requiredUnsetMemberAccessFlags);
@@ -1143,9 +1205,6 @@ public class ConfigurationParser implements AutoCloseable
                                             null,
                                             null));
             }
-
-            // We still have to read the closing separator.
-            readNextWord("separator '" + ConfigurationConstants.SEPARATOR_KEYWORD + "'");
 
             if (!ConfigurationConstants.SEPARATOR_KEYWORD.equals(nextWord))
             {
@@ -1155,37 +1214,37 @@ public class ConfigurationParser implements AutoCloseable
         }
         else
         {
-            // Make sure we have a proper type.
-            checkJavaIdentifier("java type");
-            String type         = nextWord;
-            String typeLocation = reader.locationDescription();
-
-            readNextWord("class member name");
             String name = nextWord;
+            checkJavaIdentifier("java type", type, true);
 
             // Did we get just one word before the opening parenthesis?
             if (ConfigurationConstants.OPEN_ARGUMENTS_KEYWORD.equals(name))
             {
-                // This must be a constructor then.
-                // Make sure the type is a proper constructor name.
-                if (!(type.equals(ClassConstants.METHOD_NAME_INIT) ||
-                      type.equals(externalClassName) ||
-                      type.equals(ClassUtil.externalShortClassName(externalClassName))))
+                // This must be an initializer then.
+                // Make sure the type is a proper initializer name.
+                if (ClassUtil.isInitializer(type))
+                {
+                    name = type; // This is either `<init>` or `<clinit>`.
+                    type = JavaTypeConstants.VOID;
+                }
+                else if (type.equals(externalClassName) ||
+                         type.equals(ClassUtil.externalShortClassName(externalClassName)))
+                {
+                    name = ClassConstants.METHOD_NAME_INIT;
+                    type = JavaTypeConstants.VOID;
+                }
+                else
                 {
                     throw new ParseException("Expecting type and name " +
                                              "instead of just '" + type +
                                              "' before " + reader.locationDescription());
                 }
-
-                // Assign the fixed constructor type and name.
-                type = JavaTypeConstants.VOID;
-                name = ClassConstants.METHOD_NAME_INIT;
             }
             else
             {
-                // It's not a constructor.
+                // It's not an initializer.
                 // Make sure we have a proper name.
-                checkJavaIdentifier("class member name");
+                checkNextWordIsJavaIdentifier("class member name");
 
                 // Read the opening parenthesis or the separating
                 // semi-colon.
@@ -1194,7 +1253,7 @@ public class ConfigurationParser implements AutoCloseable
             }
 
             // Check if the type actually contains the use of generics.
-            // Can not do it right away as we also support "<init>" as a type (see case above).
+            // Can not do it right away as we also support "<init>" and "<clinit>" as a type (see case above).
             if (containsGenerics(type))
             {
                 throw new ParseException("Generics are not allowed (erased) for java type" + typeLocation);
@@ -1272,6 +1331,14 @@ public class ConfigurationParser implements AutoCloseable
                 {
                     throw new ParseException("Expecting separating '" + ConfigurationConstants.ARGUMENT_SEPARATOR_KEYWORD +
                                              "' or closing '" + ConfigurationConstants.CLOSE_ARGUMENTS_KEYWORD +
+                                             "' before " + reader.locationDescription());
+                }
+
+                // Class initializers are not supposed to have any parameters.
+                if (ClassConstants.METHOD_NAME_CLINIT.equals(name) &&
+                    ClassUtil.internalMethodParameterCount(descriptor) > 0)
+                {
+                    throw new ParseException("Not expecting method parameters with initializer '" + ClassConstants.METHOD_NAME_CLINIT +
                                              "' before " + reader.locationDescription());
                 }
 
@@ -1603,7 +1670,7 @@ public class ConfigurationParser implements AutoCloseable
         {
             if (checkJavaIdentifiers)
             {
-                checkJavaIdentifier("java type", allowGenerics);
+                checkNextWordIsJavaIdentifier("java type", allowGenerics);
             }
 
             if (replaceSystemProperties)
@@ -1870,33 +1937,41 @@ public class ConfigurationParser implements AutoCloseable
      * Checks whether the given word is a valid Java identifier and throws
      * a ParseException if it isn't. Wildcard characters are accepted.
      */
-    private void checkJavaIdentifier(String expectedDescription)
+    private void checkNextWordIsJavaIdentifier(String expectedDescription)
         throws ParseException
     {
-        checkJavaIdentifier(expectedDescription, true);
+        checkNextWordIsJavaIdentifier(expectedDescription, true);
     }
 
+    private void checkNextWordIsJavaIdentifier(String expectedDescription, boolean allowGenerics) throws ParseException
+    {
+        checkJavaIdentifier(expectedDescription, nextWord, allowGenerics);
+    }
 
     /**
      * Checks whether the given word is a valid Java identifier and throws
      * a ParseException if it isn't. Wildcard characters are accepted.
      */
-    private void checkJavaIdentifier(String expectedDescription, boolean allowGenerics)
-    throws ParseException
+    private void checkJavaIdentifier(String expectedDescription, String identifier, boolean allowGenerics)
+            throws ParseException
     {
-        if (!isJavaIdentifier(nextWord))
+        if (!isValidIdentifier(identifier))
         {
             throw new ParseException("Expecting " + expectedDescription +
-                                     " before " + reader.locationDescription());
+                    " before " + reader.locationDescription());
         }
 
-        if (!allowGenerics && containsGenerics(nextWord))
+        if (!allowGenerics && containsGenerics(identifier))
         {
             throw new ParseException("Generics are not allowed (erased) in " + expectedDescription +
-                                     " " + reader.locationDescription());
+                    " " + reader.locationDescription());
         }
     }
 
+    private boolean isValidIdentifier(String word)
+    {
+        return useDalvikVerification ? isDexIdentifier(word) : isJavaIdentifier(word);
+    }
 
     /**
      * Returns whether the given word is a valid Java identifier.
@@ -1931,6 +2006,43 @@ public class ConfigurationParser implements AutoCloseable
         return true;
     }
 
+    /**
+     * Returns whether the given word is a valid DEX identifier. Special wildcard characters for
+     * ProGuard class specifiction syntaxs are accepted. The list of valid identifier can be
+     * found at https://source.android.com/docs/core/runtime/dex-format#simplename
+     */
+    private boolean isDexIdentifier(String word) {
+        if (word.isEmpty()) {
+            return false;
+        }
+
+        int[] codePoints = word.codePoints().toArray();
+
+        for (int index = 0; index < codePoints.length; index++) {
+            int c = codePoints[index];
+
+            boolean isLetterOrNumber = Character.isLetterOrDigit(c);
+            boolean isValidSymbol = c == '$' || c == '-' || c == '_';
+            boolean isWithinSupportedUnicodeRanges =
+                    (c >= 0x00a1 && c <= 0x1fff)
+                            || (c >= 0x2010 && c <= 0x2027)
+                            || (c >= 0x2030 && c <= 0xd7ff)
+                            || (c >= 0xe000 && c <= 0xffef)
+                            || (c >= 0x10000 && c <= 0x10ffff);
+            boolean isProGuardSymbols =
+                    c == '.' || c == '[' || c == ']' || c == '<' || c == '>' || c == '-' || c == '!'
+                            || c == '*' || c == '?' || c == '%';
+
+            if (!(isLetterOrNumber
+                    || isValidSymbol
+                    || isWithinSupportedUnicodeRanges
+                    || isProGuardSymbols)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /**
      * Returns whether the given word contains angle brackets around
@@ -2005,6 +2117,34 @@ public class ConfigurationParser implements AutoCloseable
             throw new ParseException("Invalid field access modifier for method before " +
                                      reader.locationDescription());
         }
+    }
+
+
+    private void parseUnsupportedR8Rules(String option, boolean parseClassSpecification) throws IOException, ParseException
+    {
+        readNextWord();
+
+        if (parseClassSpecification)
+        {
+            parseClassSpecificationArguments();
+        }
+
+
+        warnUnsupportedR8Option(option);
+    }
+
+    private void parseMaximumRemovedAndroidLogLevel() throws IOException, ParseException {
+        parseIntegerArgument();
+        if (!configurationEnd(true)) {
+            parseClassSpecificationArguments();
+        }
+
+        warnUnsupportedR8Option(ConfigurationConstants.MAXIMUM_REMOVED_ANDROID_LOG_LEVEL);
+    }
+
+    private static void warnUnsupportedR8Option(String option) {
+        System.out.println("Warning: The R8 option " + option + " is currently not supported by ProGuard.\n" +
+                "This option will have no effect on the optimized artifact.");
     }
 
 

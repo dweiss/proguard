@@ -4,7 +4,7 @@ This page will guide you through to the basic steps of processing your Android a
 !!! tip "Java / Kotlin desktop or server projects"
     If you have a Java / Kotlin desktop or server project, you can find instructions [here](gradle.md).
 
-## ProGuard Gradle Plugin (AGP version 4+)
+## ProGuard Gradle Plugin (AGP version 4.x - AGP 7.x)
 
 You can add the ProGuard plugin to your project by
 including the following in your root level `build.gradle(.kts)` file:

@@ -418,6 +418,11 @@ public class Configuration
      */
     public boolean                      keepKotlinMetadata               = false;
 
+    /**
+     * Specifies not to process Kotlin metadata. Overwrites KeepKotlinMetadata.
+     */
+    public boolean                      dontProcessKotlinMetadata        = false;
+
     // INTERNAL OPTIONS
 
     /**
@@ -431,4 +436,9 @@ public class Configuration
      * their respective jars. See {@link proguard.io.ExtraDataEntryNameMap}.
      */
     public File extraJar;
+
+    /**
+     * Specifies whether conservative optimization should be applied
+     */
+    public boolean                      optimizeConservatively  = true;
 }

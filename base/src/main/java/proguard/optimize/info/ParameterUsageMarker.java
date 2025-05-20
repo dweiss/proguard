@@ -50,7 +50,7 @@ implements   MemberVisitor,
     private final boolean          markThisParameter;
     private final boolean          markAllParameters;
     private final boolean          analyzeCode;
-    private final PartialEvaluator partialEvaluator = new PartialEvaluator();
+    private final PartialEvaluator partialEvaluator = PartialEvaluator.Builder.create().build();
 
 
     /**
@@ -122,6 +122,22 @@ implements   MemberVisitor,
                 markUsedParameters(programMethod,
                                    (accessFlags & AccessConstants.STATIC) != 0 ?
                                        -1L : -2L);
+            }
+
+            if (programMethod.processingInfo instanceof ProgramMethodOptimizationInfo
+                    && parameterSize >= 64) {
+                int parameterSizesCummulative = 0;
+                for (int index = 0; parameterSizesCummulative < 64; index++) {
+                    boolean isCategory2 =
+                            ((ProgramMethodOptimizationInfo) programMethod.processingInfo).getParameterSize(index)
+                                    == 2;
+                    if (parameterSizesCummulative == 63 && isCategory2) {
+                        markParameterUsed(programMethod, 63);
+                    }
+                    parameterSizesCummulative +=
+                            ((ProgramMethodOptimizationInfo) programMethod.processingInfo)
+                                    .getParameterSize(index);
+                }
             }
 
             // Is it a native method?

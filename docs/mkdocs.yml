@@ -80,7 +80,6 @@ nav:
     - Android Gradle:      manual/setup/gradleplugin.md
     - Java/Kotlin Gradle:  manual/setup/gradle.md
     - Ant Task:            manual/setup/ant.md
-    - Upgrading:           manual/setup/upgrading.md
 - Configuration:
     - Usage:           manual/configuration/usage.md
     - Attributes:      manual/configuration/attributes.md
@@ -91,11 +90,14 @@ nav:
     - Kotlin:          manual/languages/kotlin.md
 - Tools:
     - ReTrace:         manual/tools/retrace.md
+    - Playground:      manual/tools/playground.md
+    - AppSweep:        manual/tools/appsweep.md
 - Troubleshooting:
     - Overview:        manual/troubleshooting/troubleshooting.md
     - Limitations:     manual/troubleshooting/limitations.md
 - Reference Card:  manual/refcard.md
 - Version History: manual/releasenotes.md
+- FAQ:             manual/FAQ.md
 - Feedback:        manual/feedback.md
 - License:
     - Overview:        manual/license/license.md

@@ -2,11 +2,12 @@ import proguard.gradle.ProGuardTask
 
 buildscript {
     repositories {
+        mavenLocal()
         mavenCentral()
         google()
     }
     dependencies {
-        classpath 'com.guardsquare:proguard-gradle:7.2.1'
+        classpath 'com.guardsquare:proguard-gradle:7.7.0'
     }
 }
 

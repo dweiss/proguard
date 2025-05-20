@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2020 Guardsquare NV
+ * Copyright (c) 2002-2022 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,6 @@ package proguard;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import proguard.classfile.*;
 import proguard.classfile.kotlin.KotlinConstants;
 import proguard.classfile.util.*;
 import proguard.classfile.visitor.*;
@@ -35,6 +34,9 @@ import proguard.resources.kotlinmodule.io.KotlinModuleDataEntryReader;
 import proguard.util.*;
 
 import java.io.*;
+import java.util.List;
+
+import static proguard.DataEntryReaderFactory.getFilterExcludingVersionedClasses;
 
 /**
  * This pass reads the input class files.
@@ -45,10 +47,7 @@ public class InputReader implements Pass
 {
     private static final Logger logger = LogManager.getLogger(InputReader.class);
 
-    // Option to favor library classes over program classes, in case of
-    // duplicates.
-    // https://sourceforge.net/p/proguard/discussion/182455/thread/76430d9e
-    private static final boolean FAVOR_LIBRARY_CLASSES = System.getProperty("favor.library.classes") != null;
+    private static final boolean DONT_READ_LIBRARY_KOTLIN_METADATA = System.getProperty("proguard.dontreadlibrarykotlinmetadata") != null;
 
 
     private final Configuration configuration;
@@ -76,11 +75,6 @@ public class InputReader implements Pass
     {
         logger.info("Reading input...");
 
-        // We're using the system's default character encoding for writing to
-        // the standard output and error output.
-        PrintWriter out = new PrintWriter(System.out, true);
-        PrintWriter err = new PrintWriter(System.err, true);
-
         WarningPrinter notePrinter    = new WarningLogger(logger, configuration.note);
         WarningPrinter warningPrinter = new WarningLogger(logger, configuration.warn);
 
@@ -103,6 +97,7 @@ public class InputReader implements Pass
                             configuration.shrink   ||
                             configuration.optimize ||
                             configuration.obfuscate,
+                            configuration.keepKotlinMetadata,
                             warningPrinter,
                             classPoolFiller);
 
@@ -166,6 +161,7 @@ public class InputReader implements Pass
                                       configuration.skipNonPublicLibraryClasses,
                                       configuration.skipNonPublicLibraryClassMembers,
                                       true,
+                                      !DONT_READ_LIBRARY_KOTLIN_METADATA && configuration.keepKotlinMetadata,
                                       warningPrinter,
                       new ClassPresenceFilter(appView.programClassPool, duplicateClassPrinter,
                       new ClassPresenceFilter(appView.libraryClassPool, duplicateClassPrinter,
@@ -246,12 +242,29 @@ public class InputReader implements Pass
     {
         try
         {
+            List<String> filter = getFilterExcludingVersionedClasses(classPathEntry);
+
+            logger.info("{}{} [{}]{}",
+                messagePrefix,
+                classPathEntry.isDex()  ? "dex"  :
+                classPathEntry.isApk()  ? "apk"  :
+                classPathEntry.isAab()  ? "aab"  :
+                classPathEntry.isJar()  ? "jar"  :
+                classPathEntry.isAar()  ? "aar"  :
+                classPathEntry.isWar()  ? "war"  :
+                classPathEntry.isEar()  ? "ear"  :
+                classPathEntry.isJmod() ? "jmod" :
+                classPathEntry.isZip()  ? "zip"  :
+                                          "directory",
+                classPathEntry.getName(),
+                filter != null || classPathEntry.isFiltered() ? " (filtered)" : ""
+            );
+ 
             // Create a reader that can unwrap jars, wars, ears, jmods and zips.
             DataEntryReader reader =
-                new DataEntryReaderFactory(configuration.android, configuration.verbose)
-                    .createDataEntryReader(messagePrefix,
-                                           classPathEntry,
-                                           dataEntryReader);
+                new DataEntryReaderFactory(configuration.android)
+                    .createDataEntryReader(classPathEntry,
+                            dataEntryReader);
 
             // Create the data entry source.
             DataEntrySource source =

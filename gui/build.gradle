@@ -10,25 +10,11 @@ repositories {
     mavenCentral()
 }
 
-sourceSets.main {
-    java {
-        srcDirs = ['src']
-        include '**/*.java'
-    }
-    resources {
-        srcDirs = ['src']
-        include '**/*.properties'
-        include '**/*.gif'
-        include '**/*.png'
-        include '**/*.pro'
-    }
-}
-
 dependencies {
     implementation project(':base')
     implementation project(':retrace')
-    implementation 'org.apache.logging.log4j:log4j-api:2.17.1'
-    implementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+    implementation 'org.apache.logging.log4j:log4j-api:2.24.2'
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.2'
 }
 
 task fatJar(type: ShadowJar) {

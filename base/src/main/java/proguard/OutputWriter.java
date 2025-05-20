@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2021 Guardsquare NV
+ * Copyright (c) 2002-2022 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import java.security.*;
 import java.security.cert.X509Certificate;
 import java.util.*;
 
-import static proguard.KotlinMetadataAdapter.KOTLIN_METADATA_VERSION;
 
 /**
  * This pass writes the output class files and resource files, packaged in
@@ -106,8 +105,8 @@ public class OutputWriter implements Pass
                                        configuration.zipAlign,
                                        configuration.android, //resourceInfo.pageAlignNativeLibs,
                                        configuration.obfuscate,
-                                       privateKeyEntries,
-                                       configuration.verbose);
+                                       privateKeyEntries
+            );
 
         DataEntryWriter extraDataEntryWriter = null;
         if (configuration.extraJar != null)
@@ -117,6 +116,7 @@ public class OutputWriter implements Pass
             // combined together, after ProGuard processing.
             ClassPath extraClassPath = new ClassPath();
             extraClassPath.add(new ClassPathEntry(configuration.extraJar, true));
+            log(extraClassPath, 0, 1, privateKeyEntries);
             extraDataEntryWriter =
                     new UniqueDataEntryWriter(
                     dataEntryWriterFactory.createDataEntryWriter(extraClassPath, 0, 1, null));
@@ -143,6 +143,7 @@ public class OutputWriter implements Pass
                 if (nextIndex == programJars.size() ||
                     !programJars.get(nextIndex).isOutput())
                 {
+                    log(programJars, lastInputIndex + 1, nextIndex, privateKeyEntries);
                     // Write the processed input entries to the output entries.
                     writeOutput(dataEntryWriterFactory,
                                 configuration,
@@ -172,7 +173,6 @@ public class OutputWriter implements Pass
             extraDataEntryWriter.close();
         }
     }
-
 
     /**
      * Gets the private keys from the key stores, based on the given configuration.
@@ -323,7 +323,7 @@ public class OutputWriter implements Pass
                     new NameFilteredDataEntryWriter(KotlinConstants.MODULE.FILE_EXPRESSION,
                     new FilteredDataEntryWriter(
                         new ProcessingFlagDataEntryFilter(resourceFilePool, 0, ProcessingFlags.DONT_PROCESS_KOTLIN_MODULE),
-                        new KotlinModuleDataEntryWriter(resourceFilePool, resourceWriter, KOTLIN_METADATA_VERSION)),
+                        new KotlinModuleDataEntryWriter(resourceFilePool, resourceWriter)),
                         resourceWriter);
             }
 
@@ -522,5 +522,31 @@ public class OutputWriter implements Pass
         }
 
         return packagePrefixMap;
+    }
+
+
+    private static void log(ClassPath classPath, int fromIndex, int toIndex, KeyStore.PrivateKeyEntry[] privateKeyEntries)
+    {
+        for (int index = toIndex - 1; index >= fromIndex; index--)
+        {
+            ClassPathEntry classPathEntry = classPath.get(index);
+            List<String> filter = DataEntryReaderFactory.getFilterExcludingVersionedClasses(classPathEntry);
+
+            logger.info("Preparing {}output {} [{}]{}",
+                   privateKeyEntries == null ? "" : "signed ",
+                   classPathEntry.isDex()  ? "dex"  :
+                   classPathEntry.isApk()  ? "apk"  :
+                   classPathEntry.isAab()  ? "aab"  :
+                   classPathEntry.isJar()  ? "jar"  :
+                   classPathEntry.isAar()  ? "aar"  :
+                   classPathEntry.isWar()  ? "war"  :
+                   classPathEntry.isEar()  ? "ear"  :
+                   classPathEntry.isJmod() ? "jmod" :
+                   classPathEntry.isZip()  ? "zip"  :
+                                             "directory",
+                   classPathEntry.getName(),
+                   filter != null || classPathEntry.isFiltered() ? " (filtered)" : ""
+             );
+        }
     }
 }

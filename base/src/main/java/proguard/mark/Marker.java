@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2020 Guardsquare NV
+ * Copyright (c) 2002-2022 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -22,21 +22,66 @@ package proguard.mark;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import proguard.*;
-import proguard.classfile.*;
+import proguard.AppView;
+import proguard.Configuration;
+import proguard.KeepClassSpecificationVisitorFactory;
+import proguard.classfile.AccessConstants;
+import proguard.classfile.ClassConstants;
+import proguard.classfile.ClassPool;
+import proguard.classfile.Clazz;
 import proguard.classfile.attribute.Attribute;
-import proguard.classfile.attribute.visitor.*;
-import proguard.classfile.kotlin.*;
-import proguard.classfile.kotlin.visitor.*;
+import proguard.classfile.attribute.visitor.AllAttributeVisitor;
+import proguard.classfile.attribute.visitor.AttributeNameFilter;
+import proguard.classfile.attribute.visitor.AttributeProcessingFlagFilter;
+import proguard.classfile.attribute.visitor.AttributeVisitor;
+import proguard.classfile.kotlin.KotlinClassKindMetadata;
+import proguard.classfile.kotlin.KotlinConstants;
+import proguard.classfile.kotlin.KotlinDeclarationContainerMetadata;
+import proguard.classfile.kotlin.KotlinFunctionMetadata;
+import proguard.classfile.kotlin.KotlinMetadata;
+import proguard.classfile.kotlin.KotlinPropertyMetadata;
+import proguard.classfile.kotlin.KotlinSyntheticClassKindMetadata;
+import proguard.classfile.kotlin.visitor.KotlinFunctionToDefaultMethodVisitor;
+import proguard.classfile.kotlin.visitor.KotlinFunctionToMethodVisitor;
+import proguard.classfile.kotlin.visitor.KotlinFunctionVisitor;
+import proguard.classfile.kotlin.visitor.KotlinMetadataVisitor;
+import proguard.classfile.kotlin.visitor.KotlinPropertyVisitor;
+import proguard.classfile.kotlin.visitor.MemberToKotlinPropertyVisitor;
+import proguard.classfile.kotlin.visitor.ReferencedKotlinMetadataVisitor;
+import proguard.classfile.kotlin.visitor.filter.KotlinClassFilter;
 import proguard.classfile.util.AllParameterVisitor;
-import proguard.classfile.visitor.*;
+import proguard.classfile.visitor.AllMemberVisitor;
+import proguard.classfile.visitor.ClassAccessFilter;
+import proguard.classfile.visitor.ClassNameFilter;
+import proguard.classfile.visitor.ClassPoolVisitor;
+import proguard.classfile.visitor.ClassProcessingFlagFilter;
+import proguard.classfile.visitor.ClassVisitor;
+import proguard.classfile.visitor.MemberAccessFilter;
+import proguard.classfile.visitor.MemberDescriptorReferencedClassVisitor;
+import proguard.classfile.visitor.MemberNameFilter;
+import proguard.classfile.visitor.MemberProcessingFlagFilter;
+import proguard.classfile.visitor.MemberToClassVisitor;
+import proguard.classfile.visitor.MemberVisitor;
+import proguard.classfile.visitor.MultiClassPoolVisitor;
+import proguard.classfile.visitor.MultiClassVisitor;
+import proguard.classfile.visitor.MultiMemberVisitor;
+import proguard.classfile.visitor.NamedMethodVisitor;
 import proguard.pass.Pass;
-import proguard.util.*;
+import proguard.util.Processable;
+import proguard.util.ProcessingFlagSetter;
+import proguard.util.ProcessingFlags;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static proguard.util.ProcessingFlags.*;
 import static proguard.util.ProcessingFlags.DONT_OBFUSCATE;
+import static proguard.util.ProcessingFlags.DONT_OPTIMIZE;
+import static proguard.util.ProcessingFlags.DONT_SHRINK;
+import static proguard.util.ProcessingFlags.DONT_SHRINK_OR_OPTIMIZE_OR_OBFUSCATE;
+import static proguard.util.ProcessingFlags.INJECTED;
 
 /**
  * This pass translates the keep rules and other class specifications from the
@@ -89,6 +134,41 @@ public class Marker implements Pass
                         new ProcessingFlagSetter(ProcessingFlags.DONT_SHRINK | ProcessingFlags.DONT_OPTIMIZE | ProcessingFlags.DONT_OBFUSCATE))));
             appView.programClassPool.classesAccept(classVisitor);
             appView.libraryClassPool.classesAccept(classVisitor);
+
+            // When a property is kept, make sure the getter, setter and backing field all have the same
+            // keep flags.
+            ClassVisitor propertyVisitor =
+                new KotlinClassFilter(
+                new AllMemberVisitor(
+                new MemberToKotlinPropertyVisitor(
+                new KotlinPropertyVisitor() {
+                    public void visitAnyProperty(Clazz clazz,
+                                                 KotlinDeclarationContainerMetadata kotlinDeclarationContainerMetadata,
+                                                 KotlinPropertyMetadata kotlinPropertyMetadata) {
+                        List<Processable> processables = Stream.of(kotlinPropertyMetadata.referencedBackingField,
+                                                                   kotlinPropertyMetadata.referencedGetterMethod,
+                                                                   kotlinPropertyMetadata.referencedSetterMethod)
+                                                                .filter(Objects::nonNull)
+                                                                .collect(Collectors.toList());
+                        int flags = 0;
+                        for (Processable processable : processables) {
+                            flags |= processable.getProcessingFlags();
+                        }
+                        // Only copy the keep flags.
+                        int copiedFlags = flags & DONT_SHRINK_OR_OPTIMIZE_OR_OBFUSCATE;
+                        processables.forEach(p -> p.setProcessingFlags(p.getProcessingFlags() | copiedFlags));
+                    }
+                })));
+            appView.programClassPool.classesAccept(propertyVisitor);
+            appView.libraryClassPool.classesAccept(propertyVisitor);
+
+        }
+
+        // Mark members that can be safely used for generalization,
+        // but only if optimization is enabled.
+        if (configuration.optimize)
+        {
+            markSafeGeneralizationMembers(appView.programClassPool, appView.libraryClassPool);
         }
 
         if (configuration.keepKotlinMetadata)
@@ -187,6 +267,23 @@ public class Marker implements Pass
     }
 
 
+    private void markSafeGeneralizationMembers(ClassPool programClassPool,
+                                               ClassPool libraryClassPool)
+    {
+        // Program classes are always available and safe to generalize/specialize from/to.
+        ClassVisitor isClassAvailableMarker =
+                new ProcessingFlagSetter(ProcessingFlags.IS_CLASS_AVAILABLE);
+
+        programClassPool.classesAccept(isClassAvailableMarker);
+
+        if (!configuration.optimizeConservatively)
+        {
+            libraryClassPool.classesAccept(isClassAvailableMarker);
+        }
+        // TODO: Mark library class members where appropriate in the conservative case.
+    }
+
+
     /**
      * This method will disable optimization for all Kotlin components where required,
      * such as for $default methods.
@@ -256,7 +353,7 @@ public class Marker implements Pass
             // Mark the field that stores the companion object.
             if (kotlinClassKindMetadata.companionObjectName != null)
             {
-                clazz.fieldAccept(kotlinClassKindMetadata.companionObjectName, null, MEMBER_AND_CLASS_MARKER);
+                kotlinClassKindMetadata.referencedCompanionFieldAccept(MEMBER_AND_CLASS_MARKER);
             }
         }
 
@@ -316,11 +413,22 @@ public class Marker implements Pass
                 hasAnyOf(kotlinFunctionMetadata.referencedMethod.getProcessingFlags(),
                                  DONT_OPTIMIZE, DONT_SHRINK, DONT_OBFUSCATE))
             {
-                kotlinFunctionMetadata.referencedDefaultImplementationMethod
-                    .accept(kotlinFunctionMetadata.referencedDefaultImplementationMethodClass,
-                            new ProcessingFlagSetter(ProcessingFlags.DONT_OPTIMIZE));
-                kotlinFunctionMetadata.referencedDefaultImplementationMethodClass
-                    .accept(new ProcessingFlagSetter(ProcessingFlags.DONT_OPTIMIZE));
+/*              TODO: use this when referencedDefaultImplementationMethodAccept is available in ProGuardCORE
+                kotlinFunctionMetadata.referencedDefaultImplementationMethodAccept(
+                    new MultiMemberVisitor(
+                        new ProcessingFlagSetter(DONT_OPTIMIZE),
+                        new MemberToClassVisitor(new ProcessingFlagSetter(DONT_OPTIMIZE))
+                    )
+                );*/
+                if (kotlinFunctionMetadata.referencedDefaultImplementationMethod      != null &&
+                    kotlinFunctionMetadata.referencedDefaultImplementationMethodClass != null)
+                {
+                    kotlinFunctionMetadata.referencedDefaultImplementationMethod
+                        .accept(kotlinFunctionMetadata.referencedDefaultImplementationMethodClass,
+                                new ProcessingFlagSetter(ProcessingFlags.DONT_OPTIMIZE));
+                    kotlinFunctionMetadata.referencedDefaultImplementationMethodClass
+                        .accept(new ProcessingFlagSetter(ProcessingFlags.DONT_OPTIMIZE));
+                }
             }
         }
 

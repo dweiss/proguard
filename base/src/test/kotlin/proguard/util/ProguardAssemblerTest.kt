@@ -12,15 +12,16 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import proguard.classfile.ProgramClass
 import proguard.classfile.constant.Utf8Constant
-import testutils.AssemblerSource
-import testutils.ClassPoolBuilder
+import proguard.testutils.AssemblerSource
+import proguard.testutils.ClassPoolBuilder
 
 class ProguardAssemblerTest : FreeSpec({
     "Given Java bytecode" - {
-        val (programClassPool, _) = ClassPoolBuilder.fromSource(
-            AssemblerSource(
-                "A.jbc",
-                """
+        val (programClassPool, _) =
+            ClassPoolBuilder.fromSource(
+                AssemblerSource(
+                    "A.jbc",
+                    """
         version 1.8;
         public class A extends java.lang.Object [
             SourceFile "A.java";
@@ -43,9 +44,9 @@ class ProguardAssemblerTest : FreeSpec({
             }
 
         }
-        """
+        """,
+                ),
             )
-        )
         "When the ClassPool object is created" - {
             programClassPool.shouldNotBeNull()
             "Then the count and name of the methods should match the bytecode" {

@@ -34,8 +34,15 @@ import proguard.optimize.info.*;
 class SideEffectVisitorMarkerFactory
 implements InfluenceFixpointVisitor.MemberVisitorFactory
 {
-    public SideEffectVisitorMarkerFactory()
+    private final boolean optimizeConservatively;
+
+    /**
+     * @param optimizeConservatively specifies whether conservative
+     *                               optimization should be applied
+     */
+    public SideEffectVisitorMarkerFactory(boolean optimizeConservatively)
     {
+        this.optimizeConservatively = optimizeConservatively;
     }
 
     // Implementations for MemberVisitorFactory
@@ -45,10 +52,12 @@ implements InfluenceFixpointVisitor.MemberVisitorFactory
         ReferenceTracingValueFactory referenceTracingValueFactory1 =
             new ReferenceTracingValueFactory(new TypedReferenceValueFactory());
         PartialEvaluator partialEvaluator =
-            new PartialEvaluator(referenceTracingValueFactory1,
-                                 new ParameterTracingInvocationUnit(new BasicInvocationUnit(referenceTracingValueFactory1)),
-                                 false,
-                                 referenceTracingValueFactory1);
+            PartialEvaluator.Builder.create()
+                    .setValueFactory(referenceTracingValueFactory1)
+                    .setInvocationUnit(new ParameterTracingInvocationUnit(new BasicInvocationUnit(referenceTracingValueFactory1)))
+                    .setEvaluateAllCode(false)
+                    .setExtraInstructionVisitor(referenceTracingValueFactory1)
+                    .build();
         InstructionUsageMarker instructionUsageMarker =
             new InstructionUsageMarker(partialEvaluator, false, false);
 
@@ -61,7 +70,8 @@ implements InfluenceFixpointVisitor.MemberVisitorFactory
         // at the cost of some effectiveness (test2209).
         //ReadWriteFieldMarker readWriteFieldMarker =
         //    new ReadWriteFieldMarker(repeatTrigger);
-        SideEffectMethodMarker sideEffectMethodMarker = new SideEffectMethodMarker(influencedMethodCollector);
+        SideEffectMethodMarker sideEffectMethodMarker = new SideEffectMethodMarker(influencedMethodCollector,
+                                                                                   optimizeConservatively);
         ParameterEscapeMarker parameterEscapeMarker =
             new ParameterEscapeMarker(partialEvaluator, false, influencedMethodCollector);
 

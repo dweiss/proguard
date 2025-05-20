@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2020 Guardsquare NV
+ * Copyright (c) 2002-2022 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -71,7 +71,7 @@ implements   ClassVisitor,
      */
     public SimpleEnumUseChecker()
     {
-        this(new PartialEvaluator(new TypedReferenceValueFactory()));
+        this(PartialEvaluator.Builder.create().setValueFactory(new TypedReferenceValueFactory()).build());
     }
 
 
@@ -464,10 +464,7 @@ implements   ClassVisitor,
         // type.
         int stackEntryIndex = parameterSize - parameterOffset - 1;
         if (ClassUtil.isInternalClassType(parameterType) &&
-            !isPoppingExpectedType(invocationOffset, stackEntryIndex,
-                                   ClassUtil.isInternalArrayType(parameterType) ?
-                                       parameterType :
-                                       ClassUtil.internalClassNameFromClassType(parameterType)))
+            !isPoppingExpectedType(invocationOffset, stackEntryIndex, parameterType))
         {
             ReferenceValue poppedValue =
                 partialEvaluator.getStackBefore(invocationOffset).getTop(stackEntryIndex).referenceValue();
@@ -679,7 +676,7 @@ implements   ClassVisitor,
     {
         return isPoppingExpectedType(offset,
                                      stackEntryIndex,
-                                     clazz.getClassName(constantIndex));
+                                     ClassUtil.internalTypeFromClassType(clazz.getClassName(constantIndex)));
     }
 
 

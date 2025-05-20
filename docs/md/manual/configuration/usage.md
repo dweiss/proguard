@@ -1,5 +1,10 @@
 This page lists all available options for ProGuard, grouped logically.
 
+!!! android R8
+    R8, the default Android shrinker, is compatible with ProGuard keep rules. Both ProGuard and R8 were designed for app optimization, and although they employ minimal obfuscation techniques, they are not security tools and do not harden applications effectively against reverse engineering and tampering.
+    
+    [DexGuard](https://hubs.la/Q02yCV0F0) is a protection tool for Android apps that is backward compatible with R8, making it easy to upgrade your R8 configuration with multi-layered security protections to your unprotected mobile application. Learn more in our blog: [Android Security and Obfuscation Realities of R8](https://hubs.la/Q02yCTlt0).
+
 ## Input/Output Options {: #iooptions}
 
 `@`{: #at} [*filename*](#filename)
@@ -53,8 +58,7 @@ This page lists all available options for ProGuard, grouped logically.
   cumbersome, it allows you to process applications targeted at different
   run-time environments. For example, you can process [J2SE
   applications](examples.md#application) as well as [JME
-  midlets](examples.md#midlet) or [Android
-  apps](examples.md#androidapplication), just by specifying the appropriate
+  midlets](examples.md#midlet), just by specifying the appropriate
   run-time jar.
 
 `-skipnonpubliclibraryclasses`{: #skipnonpubliclibraryclasses}
@@ -114,6 +118,12 @@ This page lists all available options for ProGuard, grouped logically.
   specified input, output, and configuration files or directories.
 
 ## Keep Options {: #keepoptions}
+
+!!! tip "ProGuard Playground"
+    The [**ProGuard Playground**](https://playground.proguard.com) is a useful tool to help you further tweak the keep rules. 
+
+    <iframe frameborder="0" width="100%" height="200px" style="border-radius: 0.25rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);" src="https://playground.proguard.com/p/FT5qr8?embed"></iframe>
+
 
 `-keep`{: #keep} \[[,*modifier*](#keepoptionmodifiers),...\] [*class\_specification*](#classspecification)
 : Specifies classes and class members (fields and methods) to be preserved
@@ -275,10 +285,7 @@ This page lists all available options for ProGuard, grouped logically.
 
 `-assumevalues`{: #assumevalues} [*class\_specification*](#classspecification)
 : Specifies fixed values or ranges of values for primitive fields and
-  methods. For example, you can [optimize your app for given Android SDK
-  versions](examples.md#androidversions) by specifying the supported range in
-  the version constant. ProGuard can then optimize away code paths for older
-  versions. Making assumptions can be dangerous; you can easily break the
+  methods. Making assumptions can be dangerous; you can easily break the
   processed code. *Only use this option if you know what you're doing!*
 
 `-allowaccessmodification`{: #allowaccessmodification}
@@ -323,6 +330,17 @@ This page lists all available options for ProGuard, grouped logically.
     -   Sun's JRE 1.3 may throw an `InternalError` when encountering
         more than 256 *Miranda* methods (interface methods
         without implementations) in a class.
+
+`-optimizeaggressively`{: #optimizeaggressively}
+: Enables more aggressive assumptions during optimization. This might lead to
+  improved performance and/or reduced code size, but might result in different behavior in rare cases.
+  For example, reading from an array might cause an
+  `ArrayIndexOutOfBoundsException` to be thrown. Strictly speaking, this means
+  that such an instruction can have a side effect. If this instruction is removed
+  during optimization, the code will thus behave differently under specific
+  circumstances. By default, such instructions are always preserved. Setting this
+  option will lead to these instructions being candidates for removal during
+  optimization. Additionally, class merging is only enabled when this option is set.
 
 ## Obfuscation Options {: #obfuscationoptions}
 
@@ -478,12 +496,6 @@ This page lists all available options for ProGuard, grouped logically.
     elsewhere. When in doubt, just leave the packaging untouched by not using
     this option.
 
-    *Note:* On Android, you should not use the empty string when classes like
-    activities, views, etc. may be renamed. The Android run-time automatically
-    prefixes package-less names in XML files with the application package name
-    or with `android.view`. This is unavoidable but it breaks the application
-    in this case.
-
 `-keepattributes`{: #keepattributes} \[*[attribute\_filter](attributes.md)*\]
 : Specifies any optional attributes to be preserved. The attributes can be
   specified with one or more [`-keepattributes`](usage.md#keepattributes)
@@ -505,6 +517,9 @@ This page lists all available options for ProGuard, grouped logically.
   [processing a library](examples.md#library). Some IDEs can use the
   information to assist developers who use the library, for example with tool
   tips or autocompletion. Only applicable when obfuscating.
+ 
+    When processing Kotlin metadata the Kotlin function, constructor and property setter
+    parameter names are also kept.
 
 `-renamesourcefileattribute`{: #renamesourcefileattribute} \[*string*\]
 : Specifies a constant string to be put in the `SourceFile` attributes (and
@@ -515,8 +530,9 @@ This page lists all available options for ProGuard, grouped logically.
   obfuscated stack traces](examples.md#stacktrace). Only applicable when
   obfuscating.
 
-`-keepkotlinmetadata`{: #keepkotlinmetadata}
-: Specifies to process `kotlin.Metadata` annotations if present.
+`-keepkotlinmetadata`{: #keepkotlinmetadata} {: .deprecated}
+: ** Deprecated: use `-keep class kotlin.Metadata` instead. **
+  Specifies to process `kotlin.Metadata` annotations if present.
   Currently only shrinking and obfuscation of its content is supported.
   Classes containing such annotations should be excuded from optimization
   if this option is enabled.
@@ -560,9 +576,7 @@ This page lists all available options for ProGuard, grouped logically.
   6 or higher. For Java Micro Edition, preverification is required, so you
   will need to run an external preverifier on the processed code if you
   specify this option. For Java 6, preverification is optional, but as of Java
-  7, it is required. Only when eventually targeting Android, it is not
-  necessary, so you can then switch it off to reduce the processing time a
-  bit.
+  7, it is required.
 
 `-microedition`{: #microedition}
 : Specifies that the processed class files are targeted at Java Micro
@@ -574,8 +588,7 @@ This page lists all available options for ProGuard, grouped logically.
 `-android`{: #android}
 : Specifies that the processed class files are targeted at the Android
   platform. ProGuard then makes sure some features are compatible with
-  Android. For example, you should specify this option if you are [processing
-  an Android application](examples.md#androidapplication).
+  Android.
 
 ## General Options {: #generaloptions}
 
@@ -967,7 +980,7 @@ irrelevant in actual configuration files.
 
     | Wildcard | Meaning
     |-------|-----------------------------------------------------------------------------------------
-    | `%`   | matches any primitive type ("`boolean`", "`int`", etc, but not "`void`").
+    | `%`   | matches any primitive type ("`boolean`", "`int`", etc) or "`void`" type.
     | `?`   | matches any single character in a class name.
     | `*`   | matches any part of a class name not containing the package separator.
     | `**`  | matches any part of a class name, possibly containing any number of package separators.

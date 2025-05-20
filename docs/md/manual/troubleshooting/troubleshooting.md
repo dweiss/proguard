@@ -2,9 +2,6 @@ While preparing a configuration for processing your code, you may bump
 into a few problems. The following sections discuss some common issues
 and solutions:
 
-!!! tip
-    Whenever you don't find the solution for your issue on this page, the [***Guardsquare Community***](https://community.guardsquare.com/) might be the place to check for an answer or post a question.
-
 
 
 ## Problems while processing {: #processing}
@@ -102,19 +99,6 @@ ProGuard may print out some notes and non-fatal warnings:
   specifying filters on the input jars or library jars. You can switch off
   these notes by specifying the [`-dontnote`](../configuration/usage.md#dontnote) option.
 
-!!! android "Android"
-    The standard Android build process automatically specifies the input
-    jars for you. There may not be an easy way to filter them to remove
-    these notes. You could remove the duplicate classes manually from
-    your libraries. You should never explicitly specify the input jars
-    yourself (with `-injars` or `-libraryjars`), since you'll then get
-    duplicate definitions. You should also not add libraries to your
-    application that are already part of the Android run-time (notably
-    `org.w3c.dom`, `org.xml.sax`, `org.xmlpull.v1`,
-    `org.apache.commons.logging.Log`, `org.apache.http`, and
-    `org.json`). They are possibly inconsistent, and the run-time
-    libraries would get precedence anyway.
-
 **Warning: can't write resource ... Duplicate zip entry** {: #duplicatezipentry}
 : Your input jars contain multiple resource files with the same name.
   ProGuard continues copying the resource files as usual, skipping any files
@@ -122,12 +106,6 @@ ProGuard may print out some notes and non-fatal warnings:
   some problem though, so it's advisable to remove the duplicates. A
   convenient way to do so is by specifying filters on the input jars. There is
   no option to switch off these warnings.
-
-!!! android "Android"
-    The standard Android build process automatically specifies the input
-    jars for you. There may not be an easy way to filter them to remove
-    these warnings. You could remove the duplicate resource files
-    manually from the input and the libraries.
 
 ProGuard may terminate when it encounters parsing errors or I/O errors,
 or some more serious warnings:
@@ -150,11 +128,6 @@ or some more serious warnings:
         the run-time library of your platform. For JSE, these are
         typically packaged in `lib/rt.jar` (`vm.jar` for IBM's JVM, and
         `classes.jar` in MacOS X) or as of Java 9, `jmods/java.base.jmod`.
-        For Android, it is typically packaged in `android.jar`. The
-        [examples section](../configuration/examples.md) provides more details for the
-        various platforms. If ProGuard still complains that it can't find a
-        `javax.crypto` class, you probably still have to specify `jce.jar`,
-        next to the more common `rt.jar`.
 
     2.  If the missing class is referenced from a pre-compiled
         third-party library, and your original code runs fine without
@@ -176,28 +149,6 @@ or some more serious warnings:
         [`-ignorewarnings`](../configuration/usage.md#ignorewarnings) option, or even
         the [`-dontwarn`](../configuration/usage.md#dontwarn) option. Only use these
         options if you really know what you're doing though.
-
-
-!!! android "Android"
-    The standard Android build process automatically specifies the input
-    jars for you. Unfortunately, many pre-compiled third-party libraries
-    refer to other libraries that are not actually used and therefore
-    not present. This works fine in debug builds, but in release builds,
-    ProGuard expects all libraries, so it can perform a proper
-    static analysis. For example, if ProGuard complains that it can't
-    find a `java.awt` class, then some library that you are using is
-    referring to `java.awt`. This is a bit shady, since Android doesn't
-    have this package at all, but if your application works anyway, you
-    can let ProGuard accept it with "`-dontwarn java.awt.**`",
-    for instance.
-
-    If the missing class is an Android run-time class, you should make
-    sure that you are building against an Android run-time that is
-    sufficiently recent. You may need to change the build target in your
-    `project.properties` file or `build.gradle` file to that
-    recent version. You can still specify a different `minSdkVersion`
-    and a different `targetSdkVersion` in your
-    `AndroidManifest.xml` file.
 
 **Error: Can't find any super classes of ... (not even immediate super class ...)**
 **Error: Can't find common super class of ... and ...** {: #superclass}
@@ -244,16 +195,7 @@ or some more serious warnings:
 
     Alternatively, you may get away with ignoring the inconsistency
     with the options [`-ignorewarnings`](../configuration/usage.md#ignorewarnings)
-    or even [`-dontwarn`](../configuration/usage.md#dontwarn). For instance if the
-    code contains a class to optionally support recent versions of
-    Android, you can specify "`-dontwarn mypackage.MySupportClass`".
-
-!!! android "Android"
-    If you're developing for Android, and ProGuard complains that it can't
-    find a run-time method that is only available in recent versions of
-    Android, you should change the target to that recent version in your
-    build configuration. You can still specify a different `minSdkVersion`
-    and a different `targetSdkVersion` in your `AndroidManifest.xml` file.
+    or even [`-dontwarn`](../configuration/usage.md#dontwarn).
 
 **Warning: can't find enclosing class/method** {: #unresolvedenclosingmethod}
 : If there are unresolved references to classes that are defined inside
@@ -272,15 +214,6 @@ or some more serious warnings:
   program classes are renamed. You should define a clean separation between
   program code (specified with [`-injars`](../configuration/usage.md#injars)) and library code
   (specified with [`-libraryjars`](../configuration/usage.md#libraryjars)), and try again.
-
-!!! android "Android"
-    In Android development, sloppy libraries may contain duplicates of
-    classes that are already present in the Android run-time (notably
-    `org.w3c.dom`, `org.xml.sax`, `org.xmlpull.v1`,
-    `org.apache.commons.logging.Log`, `org.apache.http`, and
-    `org.json`). You must remove these classes from your libraries,
-    since they are possibly inconsistent, and the run-time libraries
-    would get precedence anyway.
 
 **Warning: class file ... unexpectedly contains class ...** {: #unexpectedclass}
 : The given class file contains a definition for the given class, but the
@@ -451,12 +384,6 @@ right, there might be a couple of reasons:
   should first check all your configuration files. Chances are that some
   `-keep` option is preserving the original names. These options may be hiding
   in your own configuration files or in configuration files from libraries.
-  For example, some class names mentioned in the Android manifest must always
-  be preserved, to avoid compatibility issues when upgrading versions of the
-  app. More specifically, the default Android build process automatically keeps
-  the names of activities, broadcast receivers and services. You can
-  find the underlying reasons in the Google blog ["Things that cannot
-  change"](https://android-developers.googleblog.com/2011/06/things-that-cannot-change.html).
 
 **Field names not being obfuscated** {: #fieldnamesnotobfuscated}
 : If the names of some fields in your obfuscated code aren't obfuscated, this
@@ -480,29 +407,6 @@ right, there might be a couple of reasons:
   with those names. ProGuard's obfuscation step does remove the original names
   entirely, unless you explicitly keep the `LocalVariableTable` or
   `LocalVariableTypeTable` attributes.
-
-## Problems while converting to Android Dalvik bytecode {: #dalvik}
-
-If ProGuard seems to run fine, but the dx tool in the Android SDK
-subsequently fails with an error:
-
-**SimException: local variable type mismatch** {: #simexception}
-: This error indicates that ProGuard's optimization step has not been able
-  to maintain the correct debug information about local variables. This can
-  happen if some code is optimized radically. Possible work-arounds: let the
-  java compiler not produce debug information (`-g:none`), or let ProGuard's
-  obfuscation step remove the debug information again (by *not* keeping the
-  attributes `LocalVariableTable` and `LocalVariableTypeTable` with
-  [`-keepattributes`](../configuration/usage.md#keepattributes)), or otherwise just disable
-  optimization ([`-dontoptimize`](../configuration/usage.md#dontoptimize)).
-
-**Conversion to Dalvik format failed with error 1** {: #conversionerror}
-: This error may have various causes, but if dx is tripping over some code
-  processed by ProGuard, you should make sure that you are using the latest
-  version of ProGuard. You can just copy the ProGuard jars to
-  `android-sdk/tools/proguard/lib`. If that doesn't help, please report the
-  problem, preferably with the simplest example that still brings out the
-  error.
 
 ## Problems while preverifying for Java Micro Edition
 
@@ -624,9 +528,7 @@ there might be several reasons:
   it's because these emulators don't like packageless classes and/or
   overloaded fields and methods. You can work around it by not using the
   options `-repackageclasses ''` and
-  [`-overloadaggressively`](../configuration/usage.md#overloadaggressively). If you're using
-  the JME WTK plugin, you can adapt the configuration
-  `proguard/wtk/default.pro` that's inside the `proguard.jar`.
+  [`-overloadaggressively`](../configuration/usage.md#overloadaggressively).
 
 **Failing midlets** (on a Java Micro Edition device)
 : If your midlet runs in an emulator and on some devices, but not on some

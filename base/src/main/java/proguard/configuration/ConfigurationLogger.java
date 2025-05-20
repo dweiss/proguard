@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2021 Guardsquare NV
+ * Copyright (c) 2002-2023 Guardsquare NV
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,13 +21,10 @@
 package proguard.configuration;
 
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -44,8 +41,6 @@ import java.util.Set;
  */
 public class ConfigurationLogger implements Runnable
 {
-    private static final Logger logger = LogManager.getLogger(ConfigurationLogger.class);
-
     // Logging constants.
     private static final boolean LOG_ONCE         = false;
     private static final String  ANDROID_UTIL_LOG = "android.util.Log";
@@ -368,7 +363,7 @@ public class ConfigurationLogger implements Runnable
                                                        constructorParameters,
                                                        false);
 
-        if (constructorInfo != null && !isKept(constructorInfo) && (constructorParameters == null || constructorParameters.length > 0)) {
+        if (constructorInfo != null && !isKept(constructorInfo)) {
             String signature = signatureString(INIT, constructorParameters, true);
             if (shouldLog(reflectedClass, sMissingMethods, signature))
             {
@@ -1031,7 +1026,8 @@ public class ConfigurationLogger implements Runnable
             return;
         }
 
-        DataInputStream dataInputStream = new DataInputStream(inputStream);
+        DataInputStream dataInputStream = new DataInputStream(
+                                          new BufferedInputStream(inputStream));
 
         int classCount = dataInputStream.readInt();
         for (int i = 0; i < classCount; i++)
@@ -1134,12 +1130,12 @@ public class ConfigurationLogger implements Runnable
             }
             catch (Exception e)
             {
-                logger.error(message);
+                System.err.println(message);
             }
         }
         else
         {
-            logger.error(message);
+            System.err.println(message);
         }
     }
 
