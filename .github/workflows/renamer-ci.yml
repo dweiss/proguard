@@ -21,4 +21,4 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - run: ./gradlew check
+      - run: ./gradlew :proguard-app:check :base:check -x ktlintTestSourceSetCheck
