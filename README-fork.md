@@ -10,6 +10,6 @@ Changes compared to plain ProGuard distribution:
     (https://sourceforge.net/p/proguard/bugs/653/) 
   * Added a 'renamepackage' option to repackage entire packages. For example:
     ```
-        -renamepackage com.google=>com.acme.dependencies.google
-        -renamepackage com.foo=>com.acme.dependencies.foo
+        -renamepackage "com\.google" => "com.acme.dependencies.google"
+        -renamepackage "com\.foo" => "com.acme.dependencies.foo"
     ```
