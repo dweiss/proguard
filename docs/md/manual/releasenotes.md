@@ -1,3 +1,26 @@
+## Version 7.8.2 
+
+### Bugfixes 
+
+- Fix regression in marking of interface constants (#508).
+
+## Version 7.8.1 
+
+### Bugfixes 
+
+- Prevent `java.lang.IncompatibleClassChangeError` when shrinking is enabled and sealed interfaces are used (#501).
+- Prevent `java.lang.ClassCastException` when inlining (#505).
+
+## Version 7.8
+
+### Kotlin support
+
+- Add support for Kotlin 2.2.
+
+### Java support
+
+- Add support for Java 25. (#481)
+
 ## Version 7.7
 
 ### Java support
