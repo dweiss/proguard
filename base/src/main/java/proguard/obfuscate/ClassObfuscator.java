@@ -587,7 +587,7 @@ implements   ClassVisitor,
     {
         return useMixedCaseClassNames ?
             className :
-            className.toLowerCase();
+            className.toLowerCase(Locale.ROOT);
     }
 
 

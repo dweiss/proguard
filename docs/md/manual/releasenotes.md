@@ -1,3 +1,33 @@
+## Version 7.10
+
+### Kotlin support
+
+- Add support for Kotlin 2.4.
+
+### Java support
+
+- Add support for Java 27.
+
+### Bugfixes
+
+- Fix broken mapping file when applying method inlining (#520).
+
+## Version 7.9.1
+
+### Bugfixes
+
+- Fix regression in Kotlin metadata shrinking (#527).
+
+## Version 7.9
+
+### Kotlin support
+
+- Add support for Kotlin 2.3.
+
+### Java support 
+
+- Add support for Java 26.
+
 ## Version 7.8.2 
 
 ### Bugfixes 

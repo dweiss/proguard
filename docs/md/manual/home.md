@@ -1,4 +1,4 @@
-Welcome to the manual for **ProGuard** version 7.8.2 ([what's new?](releasenotes.md)).
+Welcome to the manual for **ProGuard** version 7.10.0 ([what's new?](releasenotes.md)).
 
 ProGuard is an open-sourced Java class file shrinker, optimizer, obfuscator, and
 preverifier. As a result, ProGuard processed applications and libraries are smaller and faster.
@@ -11,7 +11,7 @@ attributes.
 
 The default Android shrinker, R8, is compatible with ProGuard [configuration](configuration/usage.md).
 
-If you are getting started with ProGuard, please follow the [Quick Start](building.md) guide in order to arrive at a basic setup for your application or library as quickly as possible.
+If you are getting started with ProGuard, please follow the [Quick Start](quickstart.md) guide in order to arrive at a basic setup for your application or library as quickly as possible.
 
 Experienced users can directly consult the [Configuration section](configuration/usage.md) where all features are described.
 

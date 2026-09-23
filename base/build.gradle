@@ -1,6 +1,7 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id 'java-library'
-    id 'java-test-fixtures'
     id 'maven-publish'
     id "org.jetbrains.kotlin.jvm"
     id 'com.adarshr.test-logger' version '4.0.0'
@@ -12,28 +13,18 @@ repositories {
     mavenCentral()
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
-  kotlinOptions {
-    jvmTarget = "${target}"
-  }
-}
 
 dependencies {
-    api "com.guardsquare:proguard-core:${proguardCoreVersion}"
-    implementation "com.google.code.gson:gson:${gsonVersion}"
-    implementation 'org.apache.logging.log4j:log4j-api:2.24.2'
-    implementation 'org.apache.logging.log4j:log4j-core:2.24.2'
-    implementation 'org.json:json:20231013'
-
-    testImplementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
-    testImplementation "org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion"
-    testImplementation 'dev.zacsweers.kctfork:core:0.6.0'
-    testImplementation 'io.kotest:kotest-runner-junit5-jvm:5.9.1' // for kotest framework
-    testImplementation 'io.kotest:kotest-assertions-core-jvm:5.9.1' // for kotest core jvm assertions
-    testImplementation 'io.kotest:kotest-property-jvm:5.9.1' // for kotest property test
-    testImplementation 'io.mockk:mockk:1.13.13' // for mocking
-
-    testImplementation(testFixtures("com.guardsquare:proguard-core:${proguardCoreVersion}")) {
+    api(libs.proguard.core)
+    implementation(libs.gson)
+    implementation(libs.bundles.log4j)
+    implementation(libs.json)
+    testImplementation(libs.kotlin.reflect)
+    testImplementation(libs.kotlin.stdlib)
+    testImplementation(libs.kotlin.compile.testing)
+    testImplementation(libs.bundles.kotest)
+    testImplementation(libs.mockk) // for mocking
+    testImplementation(testFixtures(libs.proguard.core)) {
         exclude group: 'com.guardsquare', module: 'proguard-core'
     }
 }
@@ -49,30 +40,31 @@ jar {
 // Early access automatic downloads are not yet supported:
 // https://github.com/gradle/gradle/issues/14814
 // But it will work if e.g. Java N-ea is pre-installed
-def javaVersionsForTest = 9..23
+def javaVersionsForTest = 12..25
 
 test {
     useJUnitPlatform()
 }
 
-task testAllJavaVersions() { testAllTask ->
-    dependsOn(test) // the usual test runs on Java 8
+def testAllJavaVersion = tasks.register("testAllJavaVersions"){ testAllTask ->
+    dependsOn(test) // the usual test runs on Java 11
+}
 
-    javaVersionsForTest.each {version ->
-        task("testJava$version", type: Test) {
-            useJUnitPlatform()
-            ignoreFailures = true
+javaVersionsForTest.each {version ->
+    def testJavaVersion = tasks.register("testJava$version", Test) {
+        useJUnitPlatform()
+        ignoreFailures = true
 
-            // The version of bytebuddy used by mockk only supports Java 22 experimentally so far
-            // if (version >= 22) systemProperty 'net.bytebuddy.experimental', true
+        // The version of bytebuddy used by mockk only supports Java 22 experimentally so far
+        // if (version >= 22) systemProperty 'net.bytebuddy.experimental', true
 
-            testAllTask.dependsOn(it)
 
-            javaLauncher = javaToolchains.launcherFor {
-                languageVersion = JavaLanguageVersion.of(version)
-            }
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(version)
         }
     }
+    testAllJavaVersion.configure { it.dependsOn(testJavaVersion) }
+
 }
 
 jacocoTestReport {
@@ -95,7 +87,7 @@ jacocoTestReport {
 
 afterEvaluate {
     publishing {
-        publications.getByName(project.name) {
+        publications.named(project.name) {
             pom {
                 description = 'ProGuard is a free shrinker, optimizer, obfuscator, and preverifier for Java bytecode'
             }

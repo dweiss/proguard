@@ -1,8 +1,13 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 plugins {
     id 'distribution'
     id 'io.github.gradle-nexus.publish-plugin'
     id 'signing'
-    id "org.jetbrains.kotlin.jvm" version "$kotlinVersion" apply false
+    alias(libs.plugins.kotlin.jvm) apply(false)
+    id "com.gradleup.shadow" version "9.1.0" apply false
 }
 
 allprojects {
@@ -13,7 +18,7 @@ allprojects {
     }
 }
 
-task buildDocumentation(type: Exec) {
+tasks.register("buildDocumentation", Exec) {
     inputs.dir 'docs/md'
     inputs.file 'docs/mkdocs.yml'
     outputs.dir 'docs/html'
@@ -60,7 +65,7 @@ allprojects { Project project ->
             configure(project) {
                 publishing {
                     publications {
-                        create(project.name, MavenPublication) {
+                        register(project.name, MavenPublication) {
                             pom {
                                 artifactId = "proguard-$project.name"
                                 name = "$group:$artifactId"
@@ -108,14 +113,24 @@ allprojects { Project project ->
                 }
                 java {
                     toolchain {
-                        languageVersion.set(JavaLanguageVersion.of(8))
+                        languageVersion.set(JavaLanguageVersion.of(11))
                     }
                     withJavadocJar()
                     withSourcesJar()
                 }
+                tasks.withType(JavaCompile).configureEach {
+                    if (!it.name.contains("Test")) {
+                        options.release = 8
+                    }
+                }
+                tasks.withType(KotlinCompile).configureEach {
+                    if (!it.name.contains("Test")) {
+                        it.compilerOptions.jvmTarget = JvmTarget.JVM_1_8
+                    }
+                }
                 publishing {
                     publications {
-                        getByName(project.name) {
+                        named(project.name) {
                             from components.java
                         }
                     }
@@ -146,31 +161,34 @@ allprojects { Project project ->
 }
 
 distributions {
-    main {
-        distributionBaseName.set('proguard')
-        contents {
-            into('lib') {
-                from tasks.getByPath(':proguard-app:fatJar').outputs
-                from tasks.getByPath(':gui:fatJar').outputs
-                from tasks.getByPath(':retrace:fatJar').outputs
-                from tasks.getByPath(':ant:fatJar').outputs
-            }
-            into('docs') {
-                from('docs/md') {
-                    includeEmptyDirs = false
-                    include '**/*.md'
+        main {
+            distributionBaseName.set('proguard')
+            contents {
+                into("lib") {
+                    def distProjects = [
+                            project(":proguard-app"),
+                            project(":gui"),
+                            project(":retrace"),
+                            project(":ant"),
+                    ]
+                    from(distProjects.collect { it.tasks.named { it == "shadowJar" } })
+                }
+                into('docs') {
+                    from('docs/md') {
+                        includeEmptyDirs = false
+                        include '**/*.md'
+                    }
+                }
+                from(rootDir) {
+                    include 'bin/'
+                    include 'examples/'
+                    exclude 'examples/*/build'
+                    exclude 'examples/*/.gradle'
+                    include 'LICENSE'
+                    include 'LICENSE_exception.md'
                 }
             }
-            from(rootDir) {
-                include 'bin/'
-                include 'examples/'
-                exclude 'examples/*/build'
-                exclude 'examples/*/.gradle'
-                include 'LICENSE'
-                include 'LICENSE_exception.md'
-            }
         }
-    }
 }
 
 distTar {
@@ -183,3 +201,4 @@ clean {
 // TODO docker runs as root, so cannot clean the HTML yet
 //    delete buildDocumentation.outputs
 }
+
